@@ -7,6 +7,8 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogMyCharacter, Log, All);
+
 ASurvivalCharacter::ASurvivalCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -32,6 +34,7 @@ ASurvivalCharacter::ASurvivalCharacter()
 	Mesh3P->bCastDynamicShadow = false;
 	Mesh3P->CastShadow = false;
 	Mesh3P->SetRelativeLocation(FVector(6.f, -2.5f, -160.f));
+
 }
 
 void ASurvivalCharacter::BeginPlay()
@@ -69,6 +72,11 @@ void ASurvivalCharacter::Look(const FInputActionValue& Value)
 	}
 }
 
+void ASurvivalCharacter::InteractPressed()
+{
+	
+}
+
 void ASurvivalCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -86,6 +94,8 @@ void ASurvivalCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ASurvivalCharacter::Move);
 
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ASurvivalCharacter::Look);
+
+		EnhancedInputComponent->BindAction(Interact, ETriggerEvent::Triggered, this, &ASurvivalCharacter::InteractPressed);
 	}
 }
 
