@@ -35,6 +35,8 @@ ASurvivalCharacter::ASurvivalCharacter()
 	Mesh3P->CastShadow = false;
 	Mesh3P->SetRelativeLocation(FVector(6.f, -2.5f, -160.f));
 
+	PlayerInventory = CreateDefaultSubobject<UPlayerInventory>(TEXT("PlayerInventory"));
+	// ItemContainer = CreateDefaultSubobject<UItemContainer>(TEXT("ItemContainer"));
 }
 
 void ASurvivalCharacter::BeginPlay()

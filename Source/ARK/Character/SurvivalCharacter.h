@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "ARK/Inventory/PlayerInventory.h"
+#include "ARK/Inventory/ItemContainer.h"
 #include "SurvivalCharacter.generated.h"
 
 class UInputComponent;
@@ -54,7 +56,11 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
 	class UInputAction* Interact;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Inventory", meta = (AllowPrivateAccess = "true"))
+	UPlayerInventory* PlayerInventory;
 
+	/*UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Inventory", meta = (AllowPrivateAccess = "true"))
+	UItemContainer* ItemContainer;*/
 
 protected:
 	void Move(const FInputActionValue& Value);
