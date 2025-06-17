@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "InventorySlot.h"
+#include "ARK/Inventory/ItemInfo.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/UniformGridPanel.h"
 #include "ItemContainerGrid.generated.h"
@@ -12,15 +13,6 @@
  * 
  */
 
-UENUM(BlueprintType)
-enum class EContainerType : uint8
-{
-	PlayerInventory     UMETA(DisplayName = "PlayerInventory"),
-	PlayerHotbar        UMETA(DisplayName = "PlayerHotbar"),
-	PlayerStorage       UMETA(DisplayName = "PlayerStorage"),
-	PlayerArmor         UMETA(DisplayName = "PlayerArmor"),
-};
-
 UCLASS()
 class ARK_API UItemContainerGrid : public UUserWidget
 {
@@ -28,11 +20,23 @@ class ARK_API UItemContainerGrid : public UUserWidget
 	
 protected:
 	virtual void NativeConstruct() override;
+
+protected:
+	
 	
 public:
+	UFUNCTION(BlueprintCallable)
+	void AddSlots(int32 Amount);
+
+	UFUNCTION(BlueprintCallable)
+	void AddSlotToGrid(int32 Index, UInventorySlot* LocalSlots);
+
+	UFUNCTION(BlueprintCallable)
+	const TArray<UInventorySlot*>& GetSlots() const { return Slots; }
+protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Setting", meta = (BindWidget))
 	class UUniformGridPanel* Grid;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Setting", meta = (ExposeOnSpawn = true))
 	int32 SlotsPerRow;
 
@@ -42,17 +46,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Setting", meta = (ExposeOnSpawn = true))
 	EContainerType ContainerType;
 
-	UFUNCTION(BlueprintCallable)
-	void AddSlots(int32 Amount);
-
-	UFUNCTION(BlueprintCallable)
-	void AddSlotToGrid(int32 Index, UInventorySlot* Slots);
-
-protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Items")
+	TArray<UInventorySlot*> Slots;
+
+private:
+	UPROPERTY(EditAnywhere, Category = "Items")
 	TSubclassOf<UInventorySlot> WidgetClass;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Items")
-	TArray<UInventorySlot*> CreatedWidgets;
-	
 };

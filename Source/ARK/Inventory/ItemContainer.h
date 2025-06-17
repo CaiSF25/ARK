@@ -44,8 +44,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Inventory")
 	int32 FindEmptySlot() const;
 
+	UFUNCTION(BlueprintCallable, Category="Inventory")
+	void UpdateUI(int32 Index, const FItemInfo& Item, bool ResetSlot);
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Inventory")
 	TArray<FItemInfo> Items;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
+	EContainerType ContainerType;
 
 };

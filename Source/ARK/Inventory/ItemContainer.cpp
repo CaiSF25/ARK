@@ -3,6 +3,8 @@
 
 #include "ItemContainer.h"
 
+#include "ARK/Character/SurvivalCharacter.h"
+
 UItemContainer::UItemContainer()
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -26,6 +28,7 @@ bool UItemContainer::AddItem(const FItemInfo& Item)
 	const int32 Index = FindEmptySlot();
 	if (Index == -1) return false;
 	Items[Index] = Item;
+	UpdateUI(Index, Item, false);
 	return true;
 }
 
@@ -34,6 +37,7 @@ void UItemContainer::ServerAddItem_Implementation(const FItemInfo& Item)
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Add Item");
 	AddItem(Item);
 }
+
 
 bool UItemContainer::RemoveItem(int SlotIndex)
 {
@@ -65,6 +69,23 @@ int32 UItemContainer::FindEmptySlot() const
 		}
 	}
 	return -1;
+}
+
+void UItemContainer::UpdateUI(int32 Index, const FItemInfo& Item, bool ResetSlot)
+{
+	switch (ContainerType)
+	{
+	case EContainerType::PlayerInventory:
+		ASurvivalCharacter* Character = Cast<ASurvivalCharacter>(GetOwner());
+		if (Character && Character->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
+		{
+			if (ASurvivalPlayerController* PlayerController = ISurvivalCharacterInterface::Execute_GetControllerFromChar(Character))
+			{
+				PlayerController->UpdateItemSlot(ContainerType, Index, Item);
+			}
+		}
+		break;
+	}
 }
 
 

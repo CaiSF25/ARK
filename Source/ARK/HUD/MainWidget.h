@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "InventoryWidget.h"
 #include "MainWidget.generated.h"
 
 /**
@@ -18,9 +19,13 @@ protected:
 	virtual void NativeConstruct() override;
 
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI",meta=(BindWidget))
-	class UInventoryWidget* InventoryWidget;
-
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	UInventoryWidget* GetInventoryWidget() const { return InventoryWidget; }
+	
 	UFUNCTION(BlueprintCallable)
 	void SetInventoryVisibility(bool bVisible);
+
+private:
+	UPROPERTY(EditAnywhere, Category = "UI",meta=(BindWidget))
+	UInventoryWidget* InventoryWidget;
 };

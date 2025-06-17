@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "ARK/HUD/MainWidget.h"
+#include "ARK/Inventory/ItemInfo.h"
 #include "GameFramework/PlayerController.h"
 #include "SurvivalPlayerController.generated.h"
 
@@ -17,6 +18,13 @@ class ARK_API ASurvivalPlayerController : public APlayerController
 
 protected:
 	virtual void BeginPlay() override;
+	
+public:
+	UFUNCTION(Client, Reliable)
+	void UpdateItemSlot(const EContainerType& Container, int32 Index, const FItemInfo& ItemInfo);
+
+	UFUNCTION(Server, Reliable)
+	void ServerUpdateItemSlot(const EContainerType& Container, int32 Index, const FItemInfo& ItemInfo);
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
@@ -36,7 +44,10 @@ protected:
 	
 private:
 	UPROPERTY()
-	UMainWidget* CreatedWidget;
+	UMainWidget* MainWidget;
 
 	bool bIsInventoryVisible = false;
+
+public:
+	
 };

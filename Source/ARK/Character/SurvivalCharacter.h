@@ -7,6 +7,7 @@
 #include "InputActionValue.h"
 #include "ARK/Inventory/PlayerInventory.h"
 #include "ARK/Inventory/ItemContainer.h"
+#include "ARK/Interfaces/SurvivalCharacterInterface.h"
 #include "SurvivalCharacter.generated.h"
 
 class UInputComponent;
@@ -17,7 +18,7 @@ class UAnimMontage;
 class USoundBase;
 
 UCLASS()
-class ARK_API ASurvivalCharacter : public ACharacter
+class ARK_API ASurvivalCharacter : public ACharacter, public ISurvivalCharacterInterface
 {
 	GENERATED_BODY()
 
@@ -70,5 +71,5 @@ protected:
 	void InteractPressed();
 
 public:
-
+	virtual ASurvivalPlayerController* GetControllerFromChar_Implementation() override;
 };

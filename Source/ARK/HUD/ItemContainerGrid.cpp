@@ -19,19 +19,19 @@ void UItemContainerGrid::AddSlots(int32 Amount)
 		UInventorySlot* NewSlot = CreateWidget<UInventorySlot>(PlayerController,WidgetClass);
 		if (NewSlot)
 		{
-			CreatedWidgets.Add(NewSlot);
+			Slots.Add(NewSlot);
 		}
 		AddSlotToGrid(i, NewSlot);
 	}
 }
 
-void UItemContainerGrid::AddSlotToGrid(int32 Index, UInventorySlot* Slots)
+void UItemContainerGrid::AddSlotToGrid(int32 Index, UInventorySlot* LocalSlots)
 {
-	if (!Grid || !Slots || SlotsPerRow <= 0) return;
+	if (!Grid || !LocalSlots || SlotsPerRow <= 0) return;
 
 	const int32 Row = Index / SlotsPerRow;
 	const int32 Column = Index % SlotsPerRow;
 
-	Grid->AddChildToUniformGrid(Slots, Row, Column);
+	Grid->AddChildToUniformGrid(LocalSlots, Row, Column);
 
 }

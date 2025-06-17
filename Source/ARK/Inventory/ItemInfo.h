@@ -37,6 +37,15 @@ enum class EArmorType : uint8
 	Boots         UMETA(DisplayName = "Boots"),
 };
 
+UENUM(BlueprintType)
+enum class EContainerType : uint8
+{
+	PlayerInventory     UMETA(DisplayName = "PlayerInventory"),
+	PlayerHotbar        UMETA(DisplayName = "PlayerHotbar"),
+	PlayerStorage       UMETA(DisplayName = "PlayerStorage"),
+	PlayerArmor         UMETA(DisplayName = "PlayerArmor"),
+};
+
 USTRUCT(BlueprintType)
 struct FItemInfo : public FTableRowBase
 {

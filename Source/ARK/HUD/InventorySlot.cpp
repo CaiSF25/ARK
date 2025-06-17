@@ -13,3 +13,17 @@ void UInventorySlot::NativeConstruct()
 	ItemHP->SetVisibility(ESlateVisibility::Hidden);
 	QuantityText->SetVisibility(ESlateVisibility::Hidden);
 }
+
+void UInventorySlot::UpdateSlot(const FItemInfo& ItemInfo)
+{
+	// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Update UItem Container11");
+	ItemIcon->SetBrushFromTexture(ItemInfo.ItemIcon);
+	ItemIcon->SetVisibility(ESlateVisibility::Visible);
+
+	FText FormattedText = FText::Format(
+		FText::FromString("x{0}"),
+		ItemInfo.ItemQuantity
+		);
+	QuantityText->SetText(FormattedText);
+	QuantityText->SetVisibility(ESlateVisibility::Visible);
+}

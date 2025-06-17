@@ -3,6 +3,8 @@
 
 #include "SurvivalPlayerController.h"
 
+#include "ARK/HUD/InventoryWidget.h"
+
 void ASurvivalPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
@@ -11,10 +13,10 @@ void ASurvivalPlayerController::BeginPlay()
 	{
 		if (WidgetClass)
 		{
-			CreatedWidget = CreateWidget<UMainWidget>(this,WidgetClass);
-			if (CreatedWidget)
+			MainWidget = CreateWidget<UMainWidget>(this,WidgetClass);
+			if (MainWidget)
 			{
-				CreatedWidget->AddToViewport();
+				MainWidget->AddToViewport();
 			}
 		}
 	}
@@ -28,11 +30,32 @@ void ASurvivalPlayerController::HandleToggleInventory()
 	}
 }
 
+void ASurvivalPlayerController::ServerUpdateItemSlot_Implementation(const EContainerType& Container, int32 Index,
+	const FItemInfo& ItemInfo)
+{
+}
+
+void ASurvivalPlayerController::UpdateItemSlot_Implementation(const EContainerType& Container, int32 Index,
+                                                        const FItemInfo& ItemInfo)
+{
+	// CreatedWidget->InventoryWidget->ItemContainerGrid->CreatedWidgets
+	if (MainWidget && MainWidget->GetInventoryWidget())
+	{
+		UItemContainerGrid* Grid = MainWidget->GetInventoryWidget()->GetItemContainerGrid();
+		if (Grid && Grid->GetSlots().IsValidIndex(Index))
+		{
+			UInventorySlot* Slot = Grid->GetSlots()[Index];
+			Slot->UpdateSlot(ItemInfo);
+			//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Update UItem Container11");
+		}
+	}
+}
+
 void ASurvivalPlayerController::ToggleInventory_Implementation(bool bShow)
 {
-	if (CreatedWidget)
+	if (MainWidget)
 	{
-		CreatedWidget->SetInventoryVisibility(bShow);
+		MainWidget->SetInventoryVisibility(bShow);
 	}
 
 	bShowMouseCursor = bShow;

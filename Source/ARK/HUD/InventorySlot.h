@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "ARK/Inventory/ItemInfo.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/Border.h"
 #include "Components/ProgressBar.h"
@@ -21,6 +22,10 @@ protected:
 	virtual void NativeConstruct() override;
 	
 public:
+	UFUNCTION(BlueprintCallable)
+	void UpdateSlot(const FItemInfo& ItemInfo);
+	
+protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (BindWidget))
 	UBorder* ItemIcon;
 
@@ -35,4 +40,5 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (BindWidget))
 	UTextBlock* QuantityText;
+private:
 };

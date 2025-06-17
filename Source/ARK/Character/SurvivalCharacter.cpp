@@ -79,6 +79,13 @@ void ASurvivalCharacter::InteractPressed()
 	
 }
 
+ASurvivalPlayerController* ASurvivalCharacter::GetControllerFromChar_Implementation()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Survival Character");
+	return Cast<ASurvivalPlayerController>(GetController());
+}
+
+
 void ASurvivalCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
