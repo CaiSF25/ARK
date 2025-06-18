@@ -20,6 +20,7 @@ void UItemContainerGrid::AddSlots(int32 Amount)
 		if (NewSlot)
 		{
 			Slots.Add(NewSlot);
+			NewSlot->SetItemIndex(i);
 		}
 		AddSlotToGrid(i, NewSlot);
 	}

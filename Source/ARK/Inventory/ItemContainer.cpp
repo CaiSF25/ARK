@@ -39,6 +39,16 @@ void UItemContainer::ServerAddItem_Implementation(const FItemInfo& Item)
 }
 
 
+bool UItemContainer::AddItemToIndex(FItemInfo Item, int32 LocalSpecificIndex, int32 FromIndex)
+{
+	if (IsSlotEmpty(LocalSpecificIndex))
+	{
+		Items[LocalSpecificIndex] = Item;
+		return true;
+	}
+	return false;
+}
+
 bool UItemContainer::RemoveItem(int SlotIndex)
 {
 	return false;
@@ -88,6 +98,33 @@ void UItemContainer::UpdateUI(int32 Index, const FItemInfo& Item, bool ResetSlot
 	}
 }
 
+void UItemContainer::TransferItem(UItemContainer* ToComponent, const int32 ToSpecificIndex, const int32 ItemIndexToTransfer) const
+{
+	if (IsValid(ToComponent))
+	{
+		const FItemInfo ItemToTransfer = GetItemAtIndex(ItemIndexToTransfer);
+		ToComponent->AddItemToIndex(ItemToTransfer, ToSpecificIndex, ItemIndexToTransfer);
+	}
+}
+
+FItemInfo UItemContainer::GetItemAtIndex(const int32 Index) const
+{
+	return Items.IsValidIndex(Index) ? Items[Index] : FItemInfo();
+}
+
+void UItemContainer::HandleSlotDrop(UItemContainer* FromContainer, int32 FromIndex, int32 DroppedIndex)
+{
+}
+
+void UItemContainer::ServerOnSlotDrop_Implementation(UItemContainer* FromContainer, int32 FromIndex, int32 DroppedIndex)
+{
+	HandleSlotDrop(FromContainer, FromIndex, DroppedIndex);
+}
+
+bool UItemContainer::IsSlotEmpty(int32 SlotIndex) const
+{
+	return Items[SlotIndex].ItemID == 0;
+}
 
 
 

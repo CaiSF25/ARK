@@ -26,10 +26,15 @@ protected:
 
 	virtual void NativeOnDragDetected(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent, UDragDropOperation*& OutOperation) override;
 
+	virtual bool NativeOnDrop(const FGeometry& InGeometry, const FDragDropEvent& InDragDropEvent, UDragDropOperation* InOperation) override;
+
 public:
 	UFUNCTION(BlueprintCallable)
 	void UpdateSlot(const FItemInfo& LocalItemInfo);
-	
+
+	UFUNCTION(BlueprintCallable)
+	void SetItemIndex(const int32 LocalItemIndex){ ItemIndex = LocalItemIndex; }
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (BindWidget))
 	UBorder* ItemIcon;

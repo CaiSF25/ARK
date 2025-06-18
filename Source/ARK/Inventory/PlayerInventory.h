@@ -16,4 +16,9 @@ class ARK_API UPlayerInventory : public UItemContainer
 	
 public:
 	UPlayerInventory();
+
+	virtual bool AddItemToIndex(FItemInfo Item, int32 LocalSpecificIndex, int32 FromIndex) override;
+
+protected:
+	virtual void HandleSlotDrop(UItemContainer* FromContainer, int32 FromIndex, int32 DroppedIndex) override;
 };

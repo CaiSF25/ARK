@@ -79,10 +79,26 @@ void ASurvivalCharacter::InteractPressed()
 	
 }
 
+void ASurvivalCharacter::ServerOnSlotDrop_Implementation(
+	EContainerType FromContainer,
+	EContainerType TargetContainer,
+	int32 FromIndex,
+	int32 DroppedIndex,
+	EArmorType ArmorType)
+{
+	PlayerInventory->ServerOnSlotDrop(PlayerInventory, FromIndex, DroppedIndex);
+}
+
+
 ASurvivalPlayerController* ASurvivalCharacter::GetControllerFromChar_Implementation()
 {
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Survival Character");
 	return Cast<ASurvivalPlayerController>(GetController());
+}
+
+class ASurvivalCharacter* ASurvivalCharacter::GetSurvivalCharRef_Implementation()
+{
+	return this;
 }
 
 

@@ -30,6 +30,9 @@ public:
 	void ServerAddItem(const FItemInfo& Item);
 
 	UFUNCTION(BlueprintCallable, Category="Inventory")
+	virtual bool AddItemToIndex(FItemInfo Item, int32 LocalSpecificIndex, int32 FromIndex);
+	
+	UFUNCTION(BlueprintCallable, Category="Inventory")
 	bool RemoveItem(int SlotIndex);
 
 	UFUNCTION(BlueprintCallable, Category="Inventory")
@@ -47,11 +50,28 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Inventory")
 	void UpdateUI(int32 Index, const FItemInfo& Item, bool ResetSlot);
 
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category="Inventory")
+	void ServerOnSlotDrop(UItemContainer* FromContainer, int32 FromIndex, int32 DroppedIndex);
+
+	void TransferItem(UItemContainer* ToComponent, const int32 ToSpecificIndex, const int32 ItemIndexToTransfer) const;
+
+	EContainerType GetContainerType() const { return ContainerType; }
+
+	UFUNCTION(BlueprintPure)
+	FItemInfo GetItemAtIndex(const int32 Index) const;
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Inventory")
 	TArray<FItemInfo> Items;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
 	EContainerType ContainerType;
+
+	// 在子类中重写
+	UFUNCTION(BlueprintCallable, Category="Inventory")
+	virtual void HandleSlotDrop(UItemContainer* FromContainer, int32 FromIndex, int32 DroppedIndex);
+
+private:
+	UFUNCTION(BlueprintPure)
+	bool IsSlotEmpty(int32 SlotIndex) const;
 
 };

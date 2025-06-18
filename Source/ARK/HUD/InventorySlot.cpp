@@ -4,7 +4,9 @@
 #include "InventorySlot.h"
 #include "Input/Reply.h"
 #include "ItemDrag.h"
+#include "ARK/Character/SurvivalCharacter.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
+#include "Kismet/GameplayStatics.h"
 
 void UInventorySlot::NativeConstruct()
 {
@@ -46,7 +48,7 @@ void UInventorySlot::NativeOnDragDetected(const FGeometry& InGeometry, const FPo
 			OutOperation = nullptr;
 			return;
 		}
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "UInventorySlot::NativeOnMouseButtonDown");
+		// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "UInventorySlot::NativeOnMouseButtonDown");
 		DraggedWidget->ImageIcon = ItemInfo.ItemIcon;
 		DraggedWidget->TextTop = FText::AsNumber(ItemInfo.ItemDamage);
 		DraggedWidget->ItemType = ItemInfo.ItemType;
@@ -73,6 +75,30 @@ void UInventorySlot::NativeOnDragDetected(const FGeometry& InGeometry, const FPo
 	}
 	
 	
+}
+
+bool UInventorySlot::NativeOnDrop(const FGeometry& InGeometry, const FDragDropEvent& InDragDropEvent,
+	UDragDropOperation* InOperation)
+{
+	if (const UItemDrag* ItemDrag = Cast<UItemDrag>(InOperation))
+	{
+		const int32 LocalSlotIndex = ItemDrag->SlotIndex;
+		const EContainerType LocalContainerType = ItemDrag->FromContainer;
+		const EArmorType ArmorType = ItemDrag->ArmorType;
+		
+		if (ACharacter* BaseCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0))
+		{
+			if (BaseCharacter->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
+			{
+				if (ASurvivalCharacter* SurvivalCharacter = ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(BaseCharacter))
+				{
+					SurvivalCharacter->ServerOnSlotDrop(LocalContainerType, ContainerType, LocalSlotIndex, ItemIndex, ArmorType);
+					return true;
+				}
+			}
+		}
+	}
+	return Super::NativeOnDrop(InGeometry, InDragDropEvent, InOperation);
 }
 
 void UInventorySlot::UpdateSlot(const FItemInfo& LocalItemInfo)

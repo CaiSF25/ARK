@@ -72,4 +72,15 @@ protected:
 
 public:
 	virtual ASurvivalPlayerController* GetControllerFromChar_Implementation() override;
+
+	virtual class ASurvivalCharacter* GetSurvivalCharRef_Implementation() override;
+
+	UFUNCTION(Server, Reliable, BlueprintCallable)
+	void ServerOnSlotDrop(
+		EContainerType FromContainer,
+		EContainerType TargetContainer,
+		int32 FromIndex,
+		int32 DroppedIndex,
+		EArmorType ArmorType
+		);
 };

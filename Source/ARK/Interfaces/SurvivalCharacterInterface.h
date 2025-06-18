@@ -24,4 +24,7 @@ class ARK_API ISurvivalCharacterInterface
 public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MyInterface")
 	ASurvivalPlayerController* GetControllerFromChar();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MyInterface")
+	class ASurvivalCharacter* GetSurvivalCharRef();
 };
