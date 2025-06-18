@@ -2,6 +2,9 @@
 
 
 #include "InventorySlot.h"
+#include "Input/Reply.h"
+#include "ItemDrag.h"
+#include "Blueprint/WidgetBlueprintLibrary.h"
 
 void UInventorySlot::NativeConstruct()
 {
@@ -14,9 +17,71 @@ void UInventorySlot::NativeConstruct()
 	QuantityText->SetVisibility(ESlateVisibility::Hidden);
 }
 
-void UInventorySlot::UpdateSlot(const FItemInfo& ItemInfo)
+FReply UInventorySlot::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+	if (InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+	{
+		return UWidgetBlueprintLibrary::DetectDragIfPressed(InMouseEvent, this, EKeys::LeftMouseButton).NativeReply;
+	}
+	
+	return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
+}
+
+void UInventorySlot::NativeOnDragDetected(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent,
+	UDragDropOperation*& OutOperation)
+{
+	Super::NativeOnDragDetected(InGeometry, InMouseEvent, OutOperation);
+	
+	if (HasItemInSlot)
+	{
+		if (ItemInfo.ItemQuantity <= 0 || !DraggedItem)
+		{
+			OutOperation = nullptr;
+			return;
+		}
+
+		UDraggedItem* DraggedWidget = CreateWidget<UDraggedItem>(GetOwningPlayer(), DraggedItem);
+		if (!DraggedWidget)
+		{
+			OutOperation = nullptr;
+			return;
+		}
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "UInventorySlot::NativeOnMouseButtonDown");
+		DraggedWidget->ImageIcon = ItemInfo.ItemIcon;
+		DraggedWidget->TextTop = FText::AsNumber(ItemInfo.ItemDamage);
+		DraggedWidget->ItemType = ItemInfo.ItemType;
+		DraggedWidget->Quantity = FText::AsNumber(ItemInfo.ItemQuantity);
+		DraggedWidget->UseAmmo = ItemInfo.UseAmmo;
+		DraggedWidget->CurAmmo = ItemInfo.CurAmmo;
+		DraggedWidget->MaxAmmo = ItemInfo.MaxAmmo;
+		DraggedWidget->CurHP = ItemInfo.ItemQuantity;
+		DraggedWidget->MaxHP = ItemInfo.ItemQuantity;
+
+		UDragDropOperation* DragOperation = UWidgetBlueprintLibrary::CreateDragDropOperation(UItemDrag::StaticClass());
+		UItemDrag* ItemOp = Cast<UItemDrag>(DragOperation);
+		if (!ItemOp)
+		{
+			OutOperation = nullptr;
+			return;
+		}
+		ItemOp->DefaultDragVisual = DraggedWidget;
+		ItemOp->SlotIndex = ItemIndex;
+		ItemOp->FromContainer = ContainerType;
+		ItemOp->ItemType = ItemInfo.ItemType;
+		ItemOp->ArmorType = ItemInfo.ArmorType;
+		OutOperation = DragOperation;
+	}
+	
+	
+}
+
+void UInventorySlot::UpdateSlot(const FItemInfo& LocalItemInfo)
 {
 	// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Update UItem Container11");
+	ItemInfo = LocalItemInfo;
+
+	HasItemInSlot = true;
+
 	ItemIcon->SetBrushFromTexture(ItemInfo.ItemIcon);
 	ItemIcon->SetVisibility(ESlateVisibility::Visible);
 
