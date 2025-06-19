@@ -36,6 +36,9 @@ public:
 	bool RemoveItem(int SlotIndex);
 
 	UFUNCTION(BlueprintCallable, Category="Inventory")
+	virtual bool RemoveItemAtIndex(const int32 Index);
+
+	UFUNCTION(BlueprintCallable, Category="Inventory")
 	bool SwapItems(int32 SlotIndexA, int32 SlotIndexB);
 
 	UFUNCTION(BlueprintCallable, Category="Inventory")
@@ -53,7 +56,7 @@ public:
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category="Inventory")
 	void ServerOnSlotDrop(UItemContainer* FromContainer, int32 FromIndex, int32 DroppedIndex);
 
-	void TransferItem(UItemContainer* ToComponent, const int32 ToSpecificIndex, const int32 ItemIndexToTransfer) const;
+	void TransferItem(UItemContainer* ToComponent, const int32 ToSpecificIndex, const int32 ItemIndexToTransfer);
 
 	EContainerType GetContainerType() const { return ContainerType; }
 

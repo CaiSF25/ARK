@@ -38,7 +38,6 @@ void UItemContainer::ServerAddItem_Implementation(const FItemInfo& Item)
 	AddItem(Item);
 }
 
-
 bool UItemContainer::AddItemToIndex(FItemInfo Item, int32 LocalSpecificIndex, int32 FromIndex)
 {
 	if (IsSlotEmpty(LocalSpecificIndex))
@@ -52,6 +51,12 @@ bool UItemContainer::AddItemToIndex(FItemInfo Item, int32 LocalSpecificIndex, in
 bool UItemContainer::RemoveItem(int SlotIndex)
 {
 	return false;
+}
+
+bool UItemContainer::RemoveItemAtIndex(const int32 Index)
+{
+	Items[Index] = FItemInfo();
+	return true;
 }
 
 bool UItemContainer::SwapItems(int32 SlotIndexA, int32 SlotIndexB)
@@ -98,12 +103,15 @@ void UItemContainer::UpdateUI(int32 Index, const FItemInfo& Item, bool ResetSlot
 	}
 }
 
-void UItemContainer::TransferItem(UItemContainer* ToComponent, const int32 ToSpecificIndex, const int32 ItemIndexToTransfer) const
+void UItemContainer::TransferItem(UItemContainer* ToComponent, const int32 ToSpecificIndex, const int32 ItemIndexToTransfer)
 {
 	if (IsValid(ToComponent))
 	{
 		const FItemInfo ItemToTransfer = GetItemAtIndex(ItemIndexToTransfer);
-		ToComponent->AddItemToIndex(ItemToTransfer, ToSpecificIndex, ItemIndexToTransfer);
+		if (ToComponent->AddItemToIndex(ItemToTransfer, ToSpecificIndex, ItemIndexToTransfer))
+		{
+			RemoveItemAtIndex(ItemIndexToTransfer);
+		}
 	}
 }
 

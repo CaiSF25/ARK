@@ -118,3 +118,14 @@ void UInventorySlot::UpdateSlot(const FItemInfo& LocalItemInfo)
 	QuantityText->SetText(FormattedText);
 	QuantityText->SetVisibility(ESlateVisibility::Visible);
 }
+
+void UInventorySlot::ResetSlot()
+{
+	ButtonText->SetVisibility(ESlateVisibility::Hidden);
+	ItemHP->SetVisibility(ESlateVisibility::Hidden);
+	ItemIcon->SetVisibility(ESlateVisibility::Hidden);
+	QuantityText->SetVisibility(ESlateVisibility::Hidden);
+	TopText->SetVisibility(ESlateVisibility::Hidden);
+
+	HasItemInSlot = false;
+}

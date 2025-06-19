@@ -22,9 +22,9 @@ protected:
 public:
 	UFUNCTION(Client, Reliable)
 	void UpdateItemSlot(const EContainerType& Container, int32 Index, const FItemInfo& ItemInfo);
-
-	UFUNCTION(Server, Reliable)
-	void ServerUpdateItemSlot(const EContainerType& Container, int32 Index, const FItemInfo& ItemInfo);
+	
+	UFUNCTION(Client, Reliable)
+	void ResetItemSlot(const EContainerType& Container, int32 Index);
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")

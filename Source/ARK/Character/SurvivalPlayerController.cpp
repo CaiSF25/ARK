@@ -22,17 +22,25 @@ void ASurvivalPlayerController::BeginPlay()
 	}
 }
 
+void ASurvivalPlayerController::ResetItemSlot_Implementation(const EContainerType& Container, int32 Index)
+{
+	if (MainWidget && MainWidget->GetInventoryWidget())
+	{
+		UItemContainerGrid* Grid = MainWidget->GetInventoryWidget()->GetItemContainerGrid();
+		if (Grid && Grid->GetSlots().IsValidIndex(Index))
+		{
+			UInventorySlot* Slot = Grid->GetSlots()[Index];
+			Slot->ResetSlot();
+		}
+	}
+}
+
 void ASurvivalPlayerController::HandleToggleInventory()
 {
 	if (IsLocalController())
 	{
 		ServerToggleInventory();
 	}
-}
-
-void ASurvivalPlayerController::ServerUpdateItemSlot_Implementation(const EContainerType& Container, int32 Index,
-	const FItemInfo& ItemInfo)
-{
 }
 
 void ASurvivalPlayerController::UpdateItemSlot_Implementation(const EContainerType& Container, int32 Index,

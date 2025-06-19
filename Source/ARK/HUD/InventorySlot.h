@@ -33,6 +33,9 @@ public:
 	void UpdateSlot(const FItemInfo& LocalItemInfo);
 
 	UFUNCTION(BlueprintCallable)
+	void ResetSlot();
+
+	UFUNCTION(BlueprintCallable)
 	void SetItemIndex(const int32 LocalItemIndex){ ItemIndex = LocalItemIndex; }
 
 protected:
