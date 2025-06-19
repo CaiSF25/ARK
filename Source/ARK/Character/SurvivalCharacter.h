@@ -8,6 +8,7 @@
 #include "ARK/Inventory/PlayerInventory.h"
 #include "ARK/Inventory/ItemContainer.h"
 #include "ARK/Interfaces/SurvivalCharacterInterface.h"
+#include "ARK/Inventory/PlayerHotBar.h"
 #include "SurvivalCharacter.generated.h"
 
 class UInputComponent;
@@ -59,6 +60,9 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Inventory", meta = (AllowPrivateAccess = "true"))
 	UPlayerInventory* PlayerInventory;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Inventory", meta = (AllowPrivateAccess = "true"))
+	UPlayerHotBar* PlayerHotBar;
 
 	/*UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Inventory", meta = (AllowPrivateAccess = "true"))
 	UItemContainer* ItemContainer;*/

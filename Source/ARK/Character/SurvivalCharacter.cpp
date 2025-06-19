@@ -36,6 +36,8 @@ ASurvivalCharacter::ASurvivalCharacter()
 	Mesh3P->SetRelativeLocation(FVector(6.f, -2.5f, -160.f));
 
 	PlayerInventory = CreateDefaultSubobject<UPlayerInventory>(TEXT("PlayerInventory"));
+
+	PlayerHotBar = CreateDefaultSubobject<UPlayerHotBar>(TEXT("PlayerHotBar"));
 	// ItemContainer = CreateDefaultSubobject<UItemContainer>(TEXT("ItemContainer"));
 }
 
