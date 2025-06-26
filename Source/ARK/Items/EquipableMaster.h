@@ -16,10 +16,9 @@ class ARK_API AEquipableMaster : public AItemMaster, public IEquipableItem
 {
 	GENERATED_BODY()
 
-protected:
+public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Equipable")
 	FEquipableInfo EquipableInfo;
-
-public:
+	
 	virtual AEquipableMaster* GetEquipableRef_Implementation() override;
 };

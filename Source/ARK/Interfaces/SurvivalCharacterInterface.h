@@ -27,4 +27,10 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MyInterface")
 	class ASurvivalCharacter* GetSurvivalCharRef();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MyInterface")
+	void ThirdPersonMontage(UAnimMontage* ThirdPersonMontage);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MyInterface")
+	void FirstPersonMontage(UAnimMontage* FirstPersonMontage);
 };

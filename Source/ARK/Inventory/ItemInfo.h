@@ -15,6 +15,7 @@ enum class EItemType : uint8
 	Armor         UMETA(DisplayName = "Armor"),
 	Consumable    UMETA(DisplayName = "Consumable"),
 	Buildable     UMETA(DisplayName = "Buildable"),
+	None		  UMETA(DisplayName = "None"),
 };
 
 UENUM(BlueprintType)
@@ -35,6 +36,7 @@ enum class EArmorType : uint8
 	Arm           UMETA(DisplayName = "Arm"),
 	Pants         UMETA(DisplayName = "Pants"),
 	Boots         UMETA(DisplayName = "Boots"),
+	None		  UMETA(DisplayName = "None"),
 };
 
 UENUM(BlueprintType)
@@ -85,7 +87,7 @@ struct FItemInfo : public FTableRowBase
 	int32 StackSize = 64;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	EItemType ItemType = EItemType::Resource;
+	EItemType ItemType = EItemType::None;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<AItemMaster> ItemClassRef = nullptr;

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Hotbar.h"
 #include "Blueprint/UserWidget.h"
 #include "InventoryWidget.h"
 #include "MainWidget.generated.h"
@@ -21,6 +22,9 @@ protected:
 public:
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	UInventoryWidget* GetInventoryWidget() const { return InventoryWidget; }
+
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	UHotbar* GetHotbar() const { return Hotbar; }
 	
 	UFUNCTION(BlueprintCallable)
 	void SetInventoryVisibility(bool bVisible);
@@ -28,4 +32,7 @@ public:
 private:
 	UPROPERTY(EditAnywhere, Category = "UI",meta=(BindWidget))
 	UInventoryWidget* InventoryWidget;
+
+	UPROPERTY(EditAnywhere, Category = "UI",meta=(BindWidget))
+	UHotbar* Hotbar;
 };

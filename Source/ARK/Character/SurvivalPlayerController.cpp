@@ -3,12 +3,37 @@
 
 #include "SurvivalPlayerController.h"
 
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
 #include "ARK/HUD/InventoryWidget.h"
+
+class UEnhancedInputLocalPlayerSubsystem;
+
+void ASurvivalPlayerController::SetupInputComponent()
+{
+	Super::SetupInputComponent();
+
+	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
+	{
+		EnhancedInputComponent->BindAction(OpenUIAction, ETriggerEvent::Started, this, &ASurvivalPlayerController::HandleToggleInventory);
+	}
+}
 
 void ASurvivalPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (ULocalPlayer* LocalPlayer = GetLocalPlayer())
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+		{
+			if (UIInputContext)
+			{
+				Subsystem->AddMappingContext(UIInputContext, 5);
+			}
+		}
+	}
+	
 	if (IsLocalController())
 	{
 		if (WidgetClass)
@@ -24,14 +49,10 @@ void ASurvivalPlayerController::BeginPlay()
 
 void ASurvivalPlayerController::ResetItemSlot_Implementation(const EContainerType& Container, int32 Index)
 {
-	if (MainWidget && MainWidget->GetInventoryWidget())
+	UInventorySlot* Slot = GetInventoryWidget(Container, Index);
+	if (IsValid(Slot))
 	{
-		UItemContainerGrid* Grid = MainWidget->GetInventoryWidget()->GetItemContainerGrid();
-		if (Grid && Grid->GetSlots().IsValidIndex(Index))
-		{
-			UInventorySlot* Slot = Grid->GetSlots()[Index];
-			Slot->ResetSlot();
-		}
+		Slot->ResetSlot();
 	}
 }
 
@@ -43,19 +64,34 @@ void ASurvivalPlayerController::HandleToggleInventory()
 	}
 }
 
+UInventorySlot* ASurvivalPlayerController::GetInventoryWidget(EContainerType Container, int32 SlotIndex)
+ {
+	TArray<UInventorySlot*> Slots;
+	switch (Container)
+	{
+	case EContainerType::PlayerInventory:
+		Slots = MainWidget->GetInventoryWidget()->GetItemContainerGrid()->GetSlots();
+		break;
+	case EContainerType::PlayerHotbar:
+		Slots = MainWidget->GetHotbar()->GetItemContainerGrid()->GetSlots();
+		break;
+	case EContainerType::PlayerStorage:
+		break;
+	case EContainerType::PlayerArmor:
+		break;
+	}
+	return Slots[SlotIndex];
+}
+
 void ASurvivalPlayerController::UpdateItemSlot_Implementation(const EContainerType& Container, int32 Index,
-                                                        const FItemInfo& ItemInfo)
+                                                              const FItemInfo& ItemInfo)
 {
 	// CreatedWidget->InventoryWidget->ItemContainerGrid->CreatedWidgets
-	if (MainWidget && MainWidget->GetInventoryWidget())
+
+	UInventorySlot* Slot = GetInventoryWidget(Container, Index);
+	if (IsValid(Slot))
 	{
-		UItemContainerGrid* Grid = MainWidget->GetInventoryWidget()->GetItemContainerGrid();
-		if (Grid && Grid->GetSlots().IsValidIndex(Index))
-		{
-			UInventorySlot* Slot = Grid->GetSlots()[Index];
-			Slot->UpdateSlot(ItemInfo);
-			//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Update UItem Container11");
-		}
+		Slot->UpdateSlot(ItemInfo);
 	}
 }
 

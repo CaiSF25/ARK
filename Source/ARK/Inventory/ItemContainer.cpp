@@ -88,10 +88,20 @@ int32 UItemContainer::FindEmptySlot() const
 
 void UItemContainer::UpdateUI(int32 Index, const FItemInfo& Item, bool ResetSlot)
 {
+	ASurvivalCharacter* Character = Cast<ASurvivalCharacter>(GetOwner());
 	switch (ContainerType)
 	{
 	case EContainerType::PlayerInventory:
-		ASurvivalCharacter* Character = Cast<ASurvivalCharacter>(GetOwner());
+		
+		if (Character && Character->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
+		{
+			if (ASurvivalPlayerController* PlayerController = ISurvivalCharacterInterface::Execute_GetControllerFromChar(Character))
+			{
+				PlayerController->UpdateItemSlot(ContainerType, Index, Item);
+			}
+		}
+		break;
+	case EContainerType::PlayerHotbar:
 		if (Character && Character->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
 		{
 			if (ASurvivalPlayerController* PlayerController = ISurvivalCharacterInterface::Execute_GetControllerFromChar(Character))

@@ -13,5 +13,12 @@ UCLASS()
 class ARK_API UHotbar : public UUserWidget
 {
 	GENERATED_BODY()
+
+public:
+	UFUNCTION(BlueprintCallable)
+	UItemContainerGrid* GetItemContainerGrid() const {return ItemContainerGrid; }
 	
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(BindWidget))
+	UItemContainerGrid* ItemContainerGrid;
 };

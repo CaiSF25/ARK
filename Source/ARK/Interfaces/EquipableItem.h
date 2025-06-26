@@ -25,5 +25,13 @@ class ARK_API IEquipableItem
 public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "EquipableInterface")
 	AEquipableMaster* GetEquipableRef();
-	
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "EquipableInterface")
+	void UseItemInterface(ASurvivalCharacter* CharRef);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "EquipableInterface")
+	void EndAnimation();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "EquipableInterface")
+	void NotifyInterface();
 };

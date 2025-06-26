@@ -16,6 +16,9 @@ class ARK_API ASurvivalPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 
+public:
+	virtual void SetupInputComponent() override;
+	
 protected:
 	virtual void BeginPlay() override;
 	
@@ -26,14 +29,17 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ResetItemSlot(const EContainerType& Container, int32 Index);
 
-protected:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
-	TSubclassOf<UMainWidget> WidgetClass;
-
 	// 按键触发时调用
 	UFUNCTION(BlueprintCallable, Category="UI")
 	void HandleToggleInventory();
 
+	UFUNCTION(BlueprintCallable, Category="UI")
+	UInventorySlot* GetInventoryWidget(EContainerType Container, int32 SlotIndex);
+	
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	TSubclassOf<UMainWidget> WidgetClass;
+	
 	// Client RPC: 切换UI
 	UFUNCTION(Client, Reliable)
 	void ToggleInventory(bool bShow);
@@ -48,6 +54,12 @@ private:
 
 	bool bIsInventoryVisible = false;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="UI", meta=(AllowPrivateAccess = "true"))
+	class UInputMappingContext* UIInputContext;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="UI", meta=(AllowPrivateAccess = "true"))
+	class UInputAction* OpenUIAction;
+	
 public:
 	
 };

@@ -7,7 +7,7 @@
 class AFirstPersonEquipable;
 
 UENUM(BlueprintType)
-enum class EquipableState : uint8
+enum class EEquipableState : uint8
 {
 	Hatchet          UMETA(DisplayName = "Hatchet"),
 	Bow              UMETA(DisplayName = "Bow"),
@@ -28,7 +28,7 @@ struct FEquipableInfo : public FTableRowBase
 	FName SocketName;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	EquipableState AnimationState;
+	EEquipableState AnimationState;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<AFirstPersonEquipable> FirstPersonEquipClass = nullptr;

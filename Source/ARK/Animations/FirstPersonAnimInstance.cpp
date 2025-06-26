@@ -25,4 +25,6 @@ void UFirstPersonAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	FVector Velocity = SurvivalCharacter->GetVelocity();
 	Velocity.Z = 0.f;
 	Speed = Velocity.Size();
+
+	EquippedItem = SurvivalCharacter->EquipableState;
 }

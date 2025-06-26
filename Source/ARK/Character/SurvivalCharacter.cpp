@@ -6,6 +6,8 @@
 #include "Components/CapsuleComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "ARK/Items/Equipables/FirstPersonEquipable.h"
+#include "Net/UnrealNetwork.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMyCharacter, Log, All);
 
@@ -13,7 +15,7 @@ ASurvivalCharacter::ASurvivalCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	// è®¾ç½®èƒ¶å›Šæå¤§å°
+	// ÉèÖÃ½ºÄÒÌá´óÐ¡
 	GetCapsuleComponent()->InitCapsuleSize(55.f, 96.0f);
 	
 	FirstPersonCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCameraComponent"));
@@ -38,7 +40,6 @@ ASurvivalCharacter::ASurvivalCharacter()
 	PlayerInventory = CreateDefaultSubobject<UPlayerInventory>(TEXT("PlayerInventory"));
 
 	PlayerHotBar = CreateDefaultSubobject<UPlayerHotBar>(TEXT("PlayerHotBar"));
-	// ItemContainer = CreateDefaultSubobject<UItemContainer>(TEXT("ItemContainer"));
 }
 
 void ASurvivalCharacter::BeginPlay()
@@ -50,9 +51,25 @@ void ASurvivalCharacter::BeginPlay()
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
 		{
 			Subsystem->AddMappingContext(FirstPersonInputContext, 0);
+			Subsystem->AddMappingContext(UIInputContext, 1);
+		}
+	}
+	if (Mesh3P)
+	{
+		if (UAnimInstance* AnimInstance = Mesh3P->GetAnimInstance())
+		{
+			AnimInstance->OnMontageEnded.AddDynamic(this, &ASurvivalCharacter::OnThirdPersonMontageEnded);
+			AnimInstance->OnPlayMontageNotifyBegin.AddDynamic(this, &ASurvivalCharacter::OnThirdPersonNotifyBegin);
 		}
 	}
 }
+
+void ASurvivalCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ASurvivalCharacter, EquipableState);
+}
+
 
 void ASurvivalCharacter::Move(const FInputActionValue& Value)
 {
@@ -76,9 +93,55 @@ void ASurvivalCharacter::Look(const FInputActionValue& Value)
 	}
 }
 
+void ASurvivalCharacter::Attack()
+{
+	// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Attack");
+	if (HasAuthority())
+	{
+		if (IsValid(ThirdPersonEquippedItem))
+		{
+			if (ThirdPersonEquippedItem->GetClass()->ImplementsInterface(UEquipableItem::StaticClass()))
+			{
+				IEquipableItem::Execute_UseItemInterface(ThirdPersonEquippedItem, this);
+			}
+		}
+	}
+	else
+	{
+		ServerAttack();
+	}
+}
+
 void ASurvivalCharacter::InteractPressed()
 {
-	
+}
+
+void ASurvivalCharacter::HotbarPressed(int32 Index)
+{
+	ServerHotbar(Index);
+}
+
+void ASurvivalCharacter::OnThirdPersonMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "OnThirdPersonMontageEnded");
+	if (IsValid(ThirdPersonEquippedItem))
+	{
+		if (ThirdPersonEquippedItem->GetClass()->ImplementsInterface(UEquipableItem::StaticClass()))
+		{
+			IEquipableItem::Execute_EndAnimation(ThirdPersonEquippedItem);
+		}
+	}
+}
+
+void ASurvivalCharacter::OnThirdPersonNotifyBegin(FName NotifyName, const FBranchingPointNotifyPayload& Payload)
+{
+	if (IsValid(ThirdPersonEquippedItem))
+	{
+		if (ThirdPersonEquippedItem->GetClass()->ImplementsInterface(UEquipableItem::StaticClass()))
+		{
+			IEquipableItem::Execute_NotifyInterface(ThirdPersonEquippedItem);
+		}
+	}
 }
 
 void ASurvivalCharacter::ServerOnSlotDrop_Implementation(
@@ -98,6 +161,159 @@ ASurvivalPlayerController* ASurvivalCharacter::GetControllerFromChar_Implementat
 	return Cast<ASurvivalPlayerController>(GetController());
 }
 
+
+void ASurvivalCharacter::SpawnEquipableThirdPerson_Implementation(TSubclassOf<AActor> Class, FItemInfo ItemInfo,
+	int32 LocalEquippedIndex)
+{
+	EquippedIndex = LocalEquippedIndex;
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		ThirdPersonEquippedItem = World->SpawnActor(Class);
+		ThirdPersonEquippedItem->SetOwner(this);
+		if (ThirdPersonEquippedItem->GetClass()->ImplementsInterface(UEquipableItem::StaticClass()))
+		{
+			AEquipableMaster* EquipRef = IEquipableItem::Execute_GetEquipableRef(ThirdPersonEquippedItem);
+			MulticastWeaponEquip(ThirdPersonEquippedItem, EquipRef->EquipableInfo.SocketName, EquipRef->EquipableInfo.AnimationState);
+			SpawnEquipableFirstPerson(EquipRef->EquipableInfo.FirstPersonEquipClass, EquipRef->EquipableInfo.SocketName);
+		}
+	}
+}
+
+void ASurvivalCharacter::SpawnEquipableFirstPerson_Implementation(TSubclassOf<AActor> Class, FName SocketName)
+{
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		FirstPersonEquippedItem = World->SpawnActor(Class);
+		const FAttachmentTransformRules AttachmentRules(
+				EAttachmentRule::SnapToTarget,    // Location
+				EAttachmentRule::SnapToTarget,    // Rotation
+				EAttachmentRule::SnapToTarget,    // Scale
+				true                              // Weld simulated bodies?
+				);
+		FirstPersonEquippedItem->AttachToComponent(Mesh1P, AttachmentRules, SocketName);
+	}
+}
+
+
+void ASurvivalCharacter::UseHotbarFunction(int32 Index)
+{
+	HorbarIndex = Index;
+	const EItemType ItemType = PlayerHotBar->CheckHotbar(Index);
+	if (ItemType != EItemType::None)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "UseHotbarFunction");
+		switch (ItemType)
+		{
+		case EItemType::Resource:
+			break;
+		case EItemType::Equipable:
+			if (IsValid(ThirdPersonEquippedItem))
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Item is already equipped");
+				ThirdPersonEquippedItem->Destroy();
+				DequipThirdPerson();
+				DequipFirstPerson();
+			}
+			else
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Equip the item");
+				FItemInfo EquippedItemInfo = PlayerHotBar->GetItems()[HorbarIndex];
+				SpawnEquipableThirdPerson(EquippedItemInfo.ItemClassRef, EquippedItemInfo, HorbarIndex);
+			}
+			break;
+		case EItemType::Armor:
+			break;
+		case EItemType::Consumable:
+			break;
+		case EItemType::Buildable:
+			break;
+			
+		default:
+			break;
+		
+					
+		}
+	}
+}
+
+void ASurvivalCharacter::ClientMontage_Implementation(UAnimMontage* FirstPersonMontage)
+{
+	if (!Mesh1P || !FirstPersonMontage) return;
+	if (UAnimInstance* AnimInstance = Mesh1P->GetAnimInstance())
+	{
+		AnimInstance->Montage_Play(FirstPersonMontage);
+	}
+}
+
+void ASurvivalCharacter::ThirdPersonMontage_Implementation(UAnimMontage* ThirdPersonMontage)
+{
+	MontageMulticast(ThirdPersonMontage);
+}
+
+void ASurvivalCharacter::FirstPersonMontage_Implementation(UAnimMontage* FirstPersonMontage)
+{
+	ClientMontage(FirstPersonMontage);
+}
+
+
+void ASurvivalCharacter::MontageMulticast_Implementation(UAnimMontage* ThirdPersonMontage)
+{
+	if (!Mesh3P || !ThirdPersonMontage) return;
+	if (UAnimInstance* AnimInstance = Mesh3P->GetAnimInstance())
+	{
+		AnimInstance->Montage_Play(ThirdPersonMontage);
+	}
+}
+
+void ASurvivalCharacter::ServerAttack_Implementation()
+{
+	if (IsValid(ThirdPersonEquippedItem))
+	{
+		if (ThirdPersonEquippedItem->GetClass()->ImplementsInterface(UEquipableItem::StaticClass()))
+		{
+			IEquipableItem::Execute_UseItemInterface(ThirdPersonEquippedItem, this);
+		}
+	}
+}
+
+void ASurvivalCharacter::MulticastWeaponEquip_Implementation(AActor* Target, FName SocketName,
+                                                             const EEquipableState& EquippedState)
+{
+	if (IsValid(Target))
+	{
+		if (IsValid(Mesh3P))
+		{
+			const FAttachmentTransformRules AttachmentRules(
+				EAttachmentRule::SnapToTarget,    // Location
+				EAttachmentRule::SnapToTarget,    // Rotation
+				EAttachmentRule::SnapToTarget,    // Scale
+				true                              // Weld simulated bodies?
+				);
+			Target->AttachToComponent(Mesh3P, AttachmentRules, SocketName);
+			EquipableState = EquippedState;
+		}
+	}
+}
+
+void ASurvivalCharacter::DequipThirdPerson_Implementation()
+{
+	EquipableState = EEquipableState::Default;
+}
+
+void ASurvivalCharacter::DequipFirstPerson_Implementation()
+{
+	FirstPersonEquippedItem->Destroy();
+}
+
+void ASurvivalCharacter::ServerHotbar_Implementation(int32 Index)
+{
+	// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Hotbar");
+	UseHotbarFunction(Index);
+}
+
+
 class ASurvivalCharacter* ASurvivalCharacter::GetSurvivalCharRef_Implementation()
 {
 	return this;
@@ -107,6 +323,7 @@ class ASurvivalCharacter* ASurvivalCharacter::GetSurvivalCharRef_Implementation(
 void ASurvivalCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
 }
 
 void ASurvivalCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -115,6 +332,7 @@ void ASurvivalCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 
 	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
 	{
+		// ½ÇÉ«ºËÐÄ¶¯×÷
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 
@@ -123,6 +341,20 @@ void ASurvivalCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ASurvivalCharacter::Look);
 
 		EnhancedInputComponent->BindAction(Interact, ETriggerEvent::Triggered, this, &ASurvivalCharacter::InteractPressed);
+
+		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ASurvivalCharacter::Attack);
+
+		// UI ²Ù×÷
+		for (int32 i = 0; i < HotbarActions.Num(); i++)
+		{
+			EnhancedInputComponent->BindAction(
+				HotbarActions[i],
+				ETriggerEvent::Started,
+				this,
+				&ASurvivalCharacter::HotbarPressed,
+				i);
+		}
 	}
+	
 }
 

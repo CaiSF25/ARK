@@ -62,6 +62,8 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	FItemInfo GetItemAtIndex(const int32 Index) const;
+
+	TArray<FItemInfo> GetItems() const { return Items; }
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Inventory")
 	TArray<FItemInfo> Items;

@@ -16,4 +16,8 @@ class ARK_API UPlayerHotBar : public UItemContainer
 
 public:
 	UPlayerHotBar();
+
+public:
+	UFUNCTION(BlueprintCallable)
+	EItemType CheckHotbar(int32 Index);
 };

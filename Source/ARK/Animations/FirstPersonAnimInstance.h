@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimInstance.h"
+#include "ARK/Items/EquipableInfo.h"
 #include "FirstPersonAnimInstance.generated.h"
 
 /**
@@ -25,4 +26,7 @@ private:
 	
 	UPROPERTY(BlueprintReadOnly, Category="Movement", meta=(AllowPrivateAccess=true))
 	float Speed;
+
+	UPROPERTY(BlueprintReadOnly, Category="Equipment", meta=(AllowPrivateAccess=true))
+	EEquipableState EquippedItem = EEquipableState::Default;
 };
