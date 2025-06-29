@@ -33,4 +33,7 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MyInterface")
 	void FirstPersonMontage(UAnimMontage* FirstPersonMontage);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MyInterface")
+	FVector GetArrowLocation();
 };

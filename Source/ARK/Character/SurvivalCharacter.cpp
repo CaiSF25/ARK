@@ -4,9 +4,11 @@
 #include "SurvivalCharacter.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/ArrowComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "ARK/Items/Equipables/FirstPersonEquipable.h"
+#include "Components/ArrowComponent.h"
 #include "Net/UnrealNetwork.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMyCharacter, Log, All);
@@ -15,14 +17,16 @@ ASurvivalCharacter::ASurvivalCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	// 设置胶囊提大小
+	// 胶囊体
 	GetCapsuleComponent()->InitCapsuleSize(55.f, 96.0f);
-	
+
+	// 相机
 	FirstPersonCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCameraComponent"));
 	FirstPersonCameraComponent->SetupAttachment(GetCapsuleComponent());
 	FirstPersonCameraComponent->SetRelativeLocation(FVector(-10.f, 0.f, 60.f));
 	FirstPersonCameraComponent->bUsePawnControlRotation = true;
 
+	// 第一人称角色
 	Mesh1P = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CharacterMesh1P"));
 	Mesh1P->SetOnlyOwnerSee(true);
 	Mesh1P->SetupAttachment(FirstPersonCameraComponent);
@@ -30,23 +34,34 @@ ASurvivalCharacter::ASurvivalCharacter()
 	Mesh1P->CastShadow = false;
 	Mesh1P->SetRelativeLocation(FVector(6.f, -2.5f, -160.f));
 
+	// 第三人称角色
 	Mesh3P = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CharacterMesh3P"));
 	Mesh3P->SetOwnerNoSee(true);
-	Mesh3P->SetupAttachment(FirstPersonCameraComponent);
+	Mesh3P->SetupAttachment(GetCapsuleComponent());
 	Mesh3P->bCastDynamicShadow = false;
 	Mesh3P->CastShadow = false;
 	Mesh3P->SetRelativeLocation(FVector(6.f, -2.5f, -160.f));
 
-	PlayerInventory = CreateDefaultSubobject<UPlayerInventory>(TEXT("PlayerInventory"));
+	// 箭头
+	Arrow1 = CreateDefaultSubobject<UArrowComponent>(TEXT("Arrow1"));
+	Arrow1->SetupAttachment(FirstPersonCameraComponent);
 
+	// 库存系统
+	PlayerInventory = CreateDefaultSubobject<UPlayerInventory>(TEXT("PlayerInventory"));
 	PlayerHotBar = CreateDefaultSubobject<UPlayerHotBar>(TEXT("PlayerHotBar"));
+
+	// 数据表
+	DataTable = CreateDefaultSubobject<UDataTable>(TEXT("DataTable"));
+
+	bReplicates = true;
+	EquipableState = EEquipableState::Default;
 }
 
 void ASurvivalCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+	if (const APlayerController* PlayerController = Cast<APlayerController>(Controller))
 	{
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
 		{
@@ -54,13 +69,11 @@ void ASurvivalCharacter::BeginPlay()
 			Subsystem->AddMappingContext(UIInputContext, 1);
 		}
 	}
-	if (Mesh3P)
+	
+	if (Mesh3P && Mesh3P->GetAnimInstance())
 	{
-		if (UAnimInstance* AnimInstance = Mesh3P->GetAnimInstance())
-		{
-			AnimInstance->OnMontageEnded.AddDynamic(this, &ASurvivalCharacter::OnThirdPersonMontageEnded);
-			AnimInstance->OnPlayMontageNotifyBegin.AddDynamic(this, &ASurvivalCharacter::OnThirdPersonNotifyBegin);
-		}
+		Mesh3P->GetAnimInstance()->OnMontageEnded.AddDynamic(this, &ASurvivalCharacter::OnThirdPersonMontageEnded);
+		Mesh3P->GetAnimInstance()->OnPlayMontageNotifyBegin.AddDynamic(this, &ASurvivalCharacter::OnThirdPersonNotifyBegin);
 	}
 }
 
@@ -68,12 +81,13 @@ void ASurvivalCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProper
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ASurvivalCharacter, EquipableState);
+	// DOREPLIFETIME(ASurvivalCharacter, ThirdPersonEquippedItem);
 }
 
 
 void ASurvivalCharacter::Move(const FInputActionValue& Value)
 {
-	FVector2D MovementVector = Value.Get<FVector2D>();
+	const FVector2D MovementVector = Value.Get<FVector2D>();
 
 	if (Controller != nullptr)
 	{
@@ -95,15 +109,11 @@ void ASurvivalCharacter::Look(const FInputActionValue& Value)
 
 void ASurvivalCharacter::Attack()
 {
-	// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Attack");
 	if (HasAuthority())
 	{
-		if (IsValid(ThirdPersonEquippedItem))
+		if (IsValid(ThirdPersonEquippedItem) && ThirdPersonEquippedItem->GetClass()->ImplementsInterface(UEquipableItem::StaticClass()))
 		{
-			if (ThirdPersonEquippedItem->GetClass()->ImplementsInterface(UEquipableItem::StaticClass()))
-			{
-				IEquipableItem::Execute_UseItemInterface(ThirdPersonEquippedItem, this);
-			}
+			IEquipableItem::Execute_UseItemInterface(ThirdPersonEquippedItem, this);
 		}
 	}
 	else
@@ -118,12 +128,11 @@ void ASurvivalCharacter::InteractPressed()
 
 void ASurvivalCharacter::HotbarPressed(int32 Index)
 {
-	ServerHotbar(Index);
+	Hotbar(Index);
 }
 
 void ASurvivalCharacter::OnThirdPersonMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "OnThirdPersonMontageEnded");
 	if (IsValid(ThirdPersonEquippedItem))
 	{
 		if (ThirdPersonEquippedItem->GetClass()->ImplementsInterface(UEquipableItem::StaticClass()))
@@ -144,26 +153,58 @@ void ASurvivalCharacter::OnThirdPersonNotifyBegin(FName NotifyName, const FBranc
 	}
 }
 
-void ASurvivalCharacter::ServerOnSlotDrop_Implementation(
-	EContainerType FromContainer,
-	EContainerType TargetContainer,
-	int32 FromIndex,
-	int32 DroppedIndex,
-	EArmorType ArmorType)
+void ASurvivalCharacter::OnSlotDrop(EContainerType FromContainer, EContainerType TargetContainer, int32 FromIndex,
+	int32 DroppedIndex, EArmorType ArmorType)
 {
-	PlayerInventory->ServerOnSlotDrop(PlayerInventory, FromIndex, DroppedIndex);
+	if (HasAuthority())
+	{
+		HandleSlotDrop(FromContainer, TargetContainer, FromIndex, DroppedIndex, ArmorType);
+	}
+	else
+	{
+		ServerOnSlotDrop(FromContainer, TargetContainer, FromIndex, DroppedIndex, ArmorType);
+	}
 }
 
-
-ASurvivalPlayerController* ASurvivalCharacter::GetControllerFromChar_Implementation()
+void ASurvivalCharacter::OnHarvestItem(FResourceStructure Resource)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Survival Character");
-	return Cast<ASurvivalPlayerController>(GetController());
+	if (HasAuthority())
+	{
+		HarvestItem(Resource);
+	}
+	else
+	{
+		ServerHarvestItem(Resource);
+	}
 }
 
+void ASurvivalCharacter::OnDequipCurItem(int32 Index)
+{
+	if (HasAuthority())
+	{
+		DequipCurItem(Index);
+	}
+	else
+	{
+		ServerDequipCurItem(Index);
+	}
+}
 
-void ASurvivalCharacter::SpawnEquipableThirdPerson_Implementation(TSubclassOf<AActor> Class, FItemInfo ItemInfo,
+void ASurvivalCharacter::OnSpawnEquipableThirdPerson(TSubclassOf<AActor> Class, FItemInfo ItemInfo,
 	int32 LocalEquippedIndex)
+{
+	if (HasAuthority())
+	{
+		SpawnEquipableThirdPerson(Class, ItemInfo, LocalEquippedIndex);
+	}
+	else
+	{
+		ServerSpawnEquipableThirdPerson(Class, ItemInfo, LocalEquippedIndex);
+	}
+}
+
+void ASurvivalCharacter::SpawnEquipableThirdPerson(TSubclassOf<AActor> Class, FItemInfo ItemInfo,
+                                                   int32 LocalEquippedIndex)
 {
 	EquippedIndex = LocalEquippedIndex;
 	UWorld* World = GetWorld();
@@ -220,7 +261,7 @@ void ASurvivalCharacter::UseHotbarFunction(int32 Index)
 			{
 				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Equip the item");
 				FItemInfo EquippedItemInfo = PlayerHotBar->GetItems()[HorbarIndex];
-				SpawnEquipableThirdPerson(EquippedItemInfo.ItemClassRef, EquippedItemInfo, HorbarIndex);
+				OnSpawnEquipableThirdPerson(EquippedItemInfo.ItemClassRef, EquippedItemInfo, HorbarIndex);
 			}
 			break;
 		case EItemType::Armor:
@@ -238,6 +279,18 @@ void ASurvivalCharacter::UseHotbarFunction(int32 Index)
 	}
 }
 
+void ASurvivalCharacter::Hotbar(int32 Index)
+{
+	if (HasAuthority())
+	{
+		UseHotbarFunction(Index);
+	}
+	else
+	{
+		ServerHotbar(Index);
+	}
+}
+
 void ASurvivalCharacter::ClientMontage_Implementation(UAnimMontage* FirstPersonMontage)
 {
 	if (!Mesh1P || !FirstPersonMontage) return;
@@ -246,17 +299,6 @@ void ASurvivalCharacter::ClientMontage_Implementation(UAnimMontage* FirstPersonM
 		AnimInstance->Montage_Play(FirstPersonMontage);
 	}
 }
-
-void ASurvivalCharacter::ThirdPersonMontage_Implementation(UAnimMontage* ThirdPersonMontage)
-{
-	MontageMulticast(ThirdPersonMontage);
-}
-
-void ASurvivalCharacter::FirstPersonMontage_Implementation(UAnimMontage* FirstPersonMontage)
-{
-	ClientMontage(FirstPersonMontage);
-}
-
 
 void ASurvivalCharacter::MontageMulticast_Implementation(UAnimMontage* ThirdPersonMontage)
 {
@@ -307,18 +349,24 @@ void ASurvivalCharacter::DequipFirstPerson_Implementation()
 	FirstPersonEquippedItem->Destroy();
 }
 
+void ASurvivalCharacter::DequipCurItem(int32 Index)
+{
+	if (Index == EquippedIndex)
+	{
+		if (IsValid(ThirdPersonEquippedItem))
+		{
+			ThirdPersonEquippedItem->Destroy();
+			DequipThirdPerson();
+			DequipFirstPerson();
+		}
+	}
+}
+
+
 void ASurvivalCharacter::ServerHotbar_Implementation(int32 Index)
 {
-	// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Hotbar");
 	UseHotbarFunction(Index);
 }
-
-
-class ASurvivalCharacter* ASurvivalCharacter::GetSurvivalCharRef_Implementation()
-{
-	return this;
-}
-
 
 void ASurvivalCharacter::Tick(float DeltaTime)
 {
@@ -355,6 +403,107 @@ void ASurvivalCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 				i);
 		}
 	}
-	
+}
+
+void ASurvivalCharacter::ServerHarvestItem_Implementation(FResourceStructure Resource)
+{
+	HarvestItem(Resource);
+}
+
+void ASurvivalCharacter::HarvestItem(FResourceStructure Resource)
+{
+	FName RowName = Resource.ResourceID;
+				
+	static const FString ContextString(TEXT("HandleTreeHit"));
+	FItemInfo* Row = DataTable->FindRow<FItemInfo>(
+		RowName,
+		ContextString,
+		true
+		);
+	if (Row)
+	{
+		Row->ItemQuantity = Resource.Quantity;
+		PlayerInventory->ServerAddItem(*Row);
+		ASurvivalPlayerController* PlayerController = Cast<ASurvivalPlayerController>(GetController());
+		PlayerController->ShowItemWidget(Row->ItemIcon, Row->ItemQuantity, Row->ItemName);
+	}
+}
+
+void ASurvivalCharacter::HandleSlotDrop(EContainerType FromContainer, EContainerType TargetContainer, int32 FromIndex, int32 DroppedIndex, EArmorType ArmorType)
+{
+	switch (TargetContainer)
+	{
+	case EContainerType::PlayerInventory:
+		switch (FromContainer)
+		{
+	case EContainerType::PlayerInventory:
+		PlayerInventory->ServerOnSlotDrop(PlayerInventory, FromIndex, DroppedIndex);
+			break;
+	case EContainerType::PlayerHotbar:
+		PlayerInventory->ServerOnSlotDrop(PlayerHotBar, FromIndex, DroppedIndex);
+			break;
+		}
+		break;
+
+	case EContainerType::PlayerHotbar:
+		switch (FromContainer)
+		{
+	case EContainerType::PlayerInventory:
+		PlayerHotBar->ServerOnSlotDrop(PlayerInventory, FromIndex, DroppedIndex);
+			break;
+	case EContainerType::PlayerHotbar:
+		PlayerHotBar->ServerOnSlotDrop(PlayerHotBar, FromIndex, DroppedIndex);
+			break;
+		}
+		break;
+		
+
+	}
+}
+
+void ASurvivalCharacter::ServerOnSlotDrop_Implementation(EContainerType FromContainer, EContainerType TargetContainer,
+	int32 FromIndex, int32 DroppedIndex, EArmorType ArmorType)
+{
+	HandleSlotDrop(FromContainer, TargetContainer, FromIndex, DroppedIndex, ArmorType);
+}
+
+
+void ASurvivalCharacter::ServerDequipCurItem_Implementation(int32 Index)
+{
+	DequipCurItem(Index);
+}
+
+void ASurvivalCharacter::ServerSpawnEquipableThirdPerson_Implementation(TSubclassOf<AActor> Class, FItemInfo ItemInfo,
+	int32 LocalEquippedIndex)
+{
+	SpawnEquipableThirdPerson(Class, ItemInfo, LocalEquippedIndex);
+}
+
+// 接口实现
+ASurvivalPlayerController* ASurvivalCharacter::GetControllerFromChar_Implementation()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Survival Character");
+	return Cast<ASurvivalPlayerController>(GetController());
+}
+
+ASurvivalCharacter* ASurvivalCharacter::GetSurvivalCharRef_Implementation()
+{
+	return this;
+}
+
+void ASurvivalCharacter::ThirdPersonMontage_Implementation(UAnimMontage* ThirdPersonMontage)
+{
+	MontageMulticast(ThirdPersonMontage);
+}
+
+void ASurvivalCharacter::FirstPersonMontage_Implementation(UAnimMontage* FirstPersonMontage)
+{
+	ClientMontage(FirstPersonMontage);
+}
+
+FVector ASurvivalCharacter::GetArrowLocation_Implementation()
+{
+	const FVector ArrowLocation = Arrow1->GetComponentLocation();
+	return ArrowLocation;
 }
 

@@ -38,7 +38,7 @@ void ASurvivalPlayerController::BeginPlay()
 	{
 		if (WidgetClass)
 		{
-			MainWidget = CreateWidget<UMainWidget>(this,WidgetClass);
+			MainWidget = CreateWidget<UMainWidget>(this, WidgetClass);
 			if (MainWidget)
 			{
 				MainWidget->AddToViewport();
@@ -82,6 +82,13 @@ UInventorySlot* ASurvivalPlayerController::GetInventoryWidget(EContainerType Con
 	}
 	return Slots[SlotIndex];
 }
+
+void ASurvivalPlayerController::ShowItemWidget_Implementation(UTexture2D* ResourceImage, int32 ResourceQuantity,
+	const FText& ResourceName)
+{
+	MainWidget->ShowItemCollected(ResourceImage, ResourceQuantity, ResourceName);
+}
+
 
 void ASurvivalPlayerController::UpdateItemSlot_Implementation(const EContainerType& Container, int32 Index,
                                                               const FItemInfo& ItemInfo)

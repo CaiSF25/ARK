@@ -38,6 +38,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetItemIndex(const int32 LocalItemIndex){ ItemIndex = LocalItemIndex; }
 
+	UFUNCTION(BlueprintCallable)
+	void SetContainerType(EContainerType LocalContainerType) { ContainerType = LocalContainerType; }
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (BindWidget))
 	UBorder* ItemIcon;

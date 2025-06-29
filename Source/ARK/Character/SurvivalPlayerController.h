@@ -35,6 +35,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="UI")
 	UInventorySlot* GetInventoryWidget(EContainerType Container, int32 SlotIndex);
+
+	UFUNCTION(Client, Reliable, BlueprintCallable)
+	void ShowItemWidget(UTexture2D* ResourceImage, int32 ResourceQuantity, const FText& ResourceName);
 	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")

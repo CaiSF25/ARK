@@ -23,6 +23,7 @@ void UItemContainerGrid::AddSlots(int32 Amount)
 			NewSlot->SetItemIndex(i);
 		}
 		AddSlotToGrid(i, NewSlot);
+		NewSlot->SetContainerType(ContainerType);
 	}
 }
 

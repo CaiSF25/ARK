@@ -30,7 +30,7 @@ bool UPlayerInventory::AddItemToIndex(FItemInfo Item, int32 LocalSpecificIndex, 
 
 bool UPlayerInventory::RemoveItemAtIndex(const int32 Index)
 {
-	bool bSuccess = Super::RemoveItemAtIndex(Index);
+	const bool bSuccess = Super::RemoveItemAtIndex(Index);
 
 	AActor* Owner = GetOwner();
 	if (!Owner) return false;
@@ -49,21 +49,6 @@ bool UPlayerInventory::RemoveItemAtIndex(const int32 Index)
 
 void UPlayerInventory::HandleSlotDrop(UItemContainer* FromContainer, int32 FromIndex, int32 DroppedIndex)
 {
-	switch (FromContainer->GetContainerType())
-	{
-	case EContainerType::PlayerInventory:
-		FromContainer->TransferItem(this, DroppedIndex, FromIndex);
-		return;
-		
-	case EContainerType::PlayerHotbar:
-		break;
-
-	case EContainerType::PlayerStorage:
-		break;
-
-	case EContainerType::PlayerArmor:
-		break;
-	}
-	
+	FromContainer->TransferItem(this, DroppedIndex, FromIndex);
 	Super::HandleSlotDrop(FromContainer, FromIndex, DroppedIndex);
 }
