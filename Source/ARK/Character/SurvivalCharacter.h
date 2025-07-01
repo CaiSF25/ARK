@@ -65,7 +65,7 @@ private:
 	UInputAction* LookAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
-	UInputAction* Interact;
+	UInputAction* InteractAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
 	UInputAction* AttackAction;
@@ -87,6 +87,9 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "DataTable", meta = (AllowPrivateAccess = "true"))
 	UDataTable* DataTable;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "DataTable", meta = (AllowPrivateAccess = "true"))
+	UDataTable* GroundResourcesTable;
+
 protected:
 	// 核心动作
 	void Move(const FInputActionValue& Value);
@@ -95,7 +98,7 @@ protected:
 
 	void Attack();
 
-	void InteractPressed();
+	void Interact();
 
 	void HotbarPressed(int32 Index);
 
@@ -106,6 +109,9 @@ protected:
 	UFUNCTION()
 	void OnThirdPersonNotifyBegin(FName NotifyName, const FBranchingPointNotifyPayload& Payload);
 
+	UFUNCTION()
+	void OnPickUpMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+	
 public:
 	// 入口函数
 	void OnSlotDrop(
@@ -156,7 +162,15 @@ public:
 	UFUNCTION(Client, Reliable, BlueprintCallable)
 	void ClientMontage(UAnimMontage* FirstPersonMontage);
 
+	// 采集系统
+	void HarvestGroundItem(AActor* Ref);
+
 private:
+	bool bIsHarvesting = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation", meta = (AllowPrivateAccess = "true"))
+	UAnimMontage* PickUpMontage;
+	
 	// 交互逻辑
 	void HandleSlotDrop(
 		EContainerType FromContainer,
@@ -174,8 +188,14 @@ private:
 
 	void SpawnEquipableThirdPerson(TSubclassOf<AActor> Class, FItemInfo ItemInfo, int32 LocalEquippedIndex);
 
+	void OverlapGroundItems();
+	
 	// 入口函数
 	void Hotbar(int32 Index);
+
+	void OnOverlapGroundItems();
+
+	void OnHarvestMontage();
 
 	// Server Functions
 	UFUNCTION(Server, Reliable)
@@ -201,6 +221,15 @@ private:
 
 	UFUNCTION(Server, Reliable)
 	void ServerSpawnEquipableThirdPerson(TSubclassOf<AActor> Class, FItemInfo ItemInfo, int32 LocalEquippedIndex);
+
+	UFUNCTION(Server, Reliable)
+	void ServerInteract();
+
+	UFUNCTION(Server, Reliable)
+	void ServerOverlapGroundItems();
+
+	UFUNCTION(Server, Reliable)
+	void ServerHarvestMontage();
 	
 public:
 	// 接口实现

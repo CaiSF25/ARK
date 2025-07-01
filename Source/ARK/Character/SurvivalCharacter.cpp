@@ -7,8 +7,13 @@
 #include "Components/ArrowComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "ARK/HarvestingSystem/DestructableHarvestable.h"
+#include "ARK/HarvestingSystem/GroundItemMaster.h"
+#include "ARK/HarvestingSystem/LargeItem.h"
+#include "ARK/Interfaces/GroundItemInterface.h"
 #include "ARK/Items/Equipables/FirstPersonEquipable.h"
 #include "Components/ArrowComponent.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMyCharacter, Log, All);
@@ -52,6 +57,7 @@ ASurvivalCharacter::ASurvivalCharacter()
 
 	// 数据表
 	DataTable = CreateDefaultSubobject<UDataTable>(TEXT("DataTable"));
+	GroundResourcesTable = CreateDefaultSubobject<UDataTable>(TEXT("GroundResources"));
 
 	bReplicates = true;
 	EquipableState = EEquipableState::Default;
@@ -74,6 +80,8 @@ void ASurvivalCharacter::BeginPlay()
 	{
 		Mesh3P->GetAnimInstance()->OnMontageEnded.AddDynamic(this, &ASurvivalCharacter::OnThirdPersonMontageEnded);
 		Mesh3P->GetAnimInstance()->OnPlayMontageNotifyBegin.AddDynamic(this, &ASurvivalCharacter::OnThirdPersonNotifyBegin);
+
+		Mesh3P->GetAnimInstance()->OnMontageEnded.AddDynamic(this, &ASurvivalCharacter::OnPickUpMontageEnded);
 	}
 }
 
@@ -122,8 +130,16 @@ void ASurvivalCharacter::Attack()
 	}
 }
 
-void ASurvivalCharacter::InteractPressed()
+void ASurvivalCharacter::Interact()
 {
+	if (HasAuthority())
+	{
+		OnOverlapGroundItems();
+	}
+	else
+	{
+		ServerInteract();
+	}
 }
 
 void ASurvivalCharacter::HotbarPressed(int32 Index)
@@ -140,6 +156,10 @@ void ASurvivalCharacter::OnThirdPersonMontageEnded(UAnimMontage* Montage, bool b
 			IEquipableItem::Execute_EndAnimation(ThirdPersonEquippedItem);
 		}
 	}
+	else
+	{
+		bIsHarvesting = false;
+	}
 }
 
 void ASurvivalCharacter::OnThirdPersonNotifyBegin(FName NotifyName, const FBranchingPointNotifyPayload& Payload)
@@ -153,8 +173,13 @@ void ASurvivalCharacter::OnThirdPersonNotifyBegin(FName NotifyName, const FBranc
 	}
 }
 
+void ASurvivalCharacter::OnPickUpMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	bIsHarvesting = false;
+}
+
 void ASurvivalCharacter::OnSlotDrop(EContainerType FromContainer, EContainerType TargetContainer, int32 FromIndex,
-	int32 DroppedIndex, EArmorType ArmorType)
+                                    int32 DroppedIndex, EArmorType ArmorType)
 {
 	if (HasAuthority())
 	{
@@ -219,6 +244,51 @@ void ASurvivalCharacter::SpawnEquipableThirdPerson(TSubclassOf<AActor> Class, FI
 			SpawnEquipableFirstPerson(EquipRef->EquipableInfo.FirstPersonEquipClass, EquipRef->EquipableInfo.SocketName);
 		}
 	}
+}
+
+void ASurvivalCharacter::OverlapGroundItems()
+{
+	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+	// ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel1));
+	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
+
+	const TSubclassOf<AActor> ClassFilter = nullptr;
+
+	const TArray<AActor*> ActorsToIgnore = { this };
+
+	TArray<AActor*> OutActors;
+	
+	if (UKismetSystemLibrary::SphereOverlapActors(
+		this,
+		GetActorLocation(),
+		70.f,
+		ObjectTypes,
+		ClassFilter,
+		ActorsToIgnore, 
+		OutActors
+		))
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, "We Hit a Bush");
+		HarvestGroundItem(OutActors[0]);
+		OnHarvestMontage();
+	}
+	else
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, "No Hit");
+	}
+
+	const UWorld* World = GetWorld();
+	DrawDebugSphere(
+		World,
+		GetActorLocation(),
+		70.f,
+		12,
+		FColor::Red,
+		false,
+		3,
+		0,
+		2
+		);
 }
 
 void ASurvivalCharacter::SpawnEquipableFirstPerson_Implementation(TSubclassOf<AActor> Class, FName SocketName)
@@ -309,6 +379,40 @@ void ASurvivalCharacter::MontageMulticast_Implementation(UAnimMontage* ThirdPers
 	}
 }
 
+void ASurvivalCharacter::OnOverlapGroundItems()
+{
+	if (HasAuthority())
+	{
+		OverlapGroundItems();
+	}
+	else
+	{
+		ServerOverlapGroundItems();
+	}
+}
+
+void ASurvivalCharacter::OnHarvestMontage()
+{
+	if (HasAuthority())
+	{
+		if (!bIsHarvesting)
+		{
+			bIsHarvesting = true;
+			if (UAnimInstance* AnimInstance = Mesh3P->GetAnimInstance())
+			{
+				AnimInstance->Montage_Play(PickUpMontage);
+				ClientMontage(PickUpMontage);
+				MontageMulticast(PickUpMontage);
+			}
+		}
+	}
+	else
+	{
+		ServerHarvestMontage();
+	}
+}
+
+
 void ASurvivalCharacter::ServerAttack_Implementation()
 {
 	if (IsValid(ThirdPersonEquippedItem))
@@ -388,7 +492,7 @@ void ASurvivalCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ASurvivalCharacter::Look);
 
-		EnhancedInputComponent->BindAction(Interact, ETriggerEvent::Triggered, this, &ASurvivalCharacter::InteractPressed);
+		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &ASurvivalCharacter::Interact);
 
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ASurvivalCharacter::Attack);
 
@@ -412,7 +516,7 @@ void ASurvivalCharacter::ServerHarvestItem_Implementation(FResourceStructure Res
 
 void ASurvivalCharacter::HarvestItem(FResourceStructure Resource)
 {
-	FName RowName = Resource.ResourceID;
+	const FName RowName = Resource.ResourceID;
 				
 	static const FString ContextString(TEXT("HandleTreeHit"));
 	FItemInfo* Row = DataTable->FindRow<FItemInfo>(
@@ -426,6 +530,61 @@ void ASurvivalCharacter::HarvestItem(FResourceStructure Resource)
 		PlayerInventory->ServerAddItem(*Row);
 		ASurvivalPlayerController* PlayerController = Cast<ASurvivalPlayerController>(GetController());
 		PlayerController->ShowItemWidget(Row->ItemIcon, Row->ItemQuantity, Row->ItemName);
+	}
+}
+
+void ASurvivalCharacter::HarvestGroundItem(AActor* Ref)
+{
+	if (Ref->GetClass()->ImplementsInterface(UGroundItemInterface::StaticClass()))
+	{
+		if (AGroundItemMaster* GroundItem = IGroundItemInterface::Execute_GetGroundItemRef(Ref))
+		{
+			const FName RowName = FName(*GroundItem->GetClass()->GetName());
+			static const FString ContextString(TEXT("HandleInteract"));
+
+			FLargeItem* Row = GroundResourcesTable->FindRow<FLargeItem>(
+					RowName,
+					ContextString,
+					true);
+			
+			const float LocalHealth = GroundItem->GetHealth() - 15;
+			if (LocalHealth <= 0)
+			{
+				if (Row)
+				{
+					if (IsValid(Row->Class))
+					{
+						const FTransform Transform = GroundItem->GetTransform();
+						GroundItem->Destroy();
+						if (UWorld* World = GroundItem->GetWorld())
+						{
+							World->SpawnActor(Row->Class, &Transform);
+						}
+					}
+				}
+			}
+			else
+			{
+				GroundItem->SetHealth(LocalHealth);
+				if (Row)
+				{
+					for (FResourceStructure Resource : Row->GivenItems)
+					{
+						FResourceStructure LocalResource = Resource;
+						const float BaseVar = Resource.Quantity;
+						const float RateVar = 1;
+						const float RandomVar = FMath::RandRange(0.3, 1.2);
+						GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("%f, %f, %f"), BaseVar, RateVar, RandomVar));
+
+						if (int32 LocalQuantity = FMath::RoundToFloat(BaseVar * RateVar * RandomVar) > 0)
+						{
+							LocalResource.Quantity = LocalQuantity;
+							OnHarvestItem(LocalResource);
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -477,6 +636,30 @@ void ASurvivalCharacter::ServerSpawnEquipableThirdPerson_Implementation(TSubclas
 	int32 LocalEquippedIndex)
 {
 	SpawnEquipableThirdPerson(Class, ItemInfo, LocalEquippedIndex);
+}
+
+void ASurvivalCharacter::ServerInteract_Implementation()
+{
+	OnOverlapGroundItems();
+}
+
+void ASurvivalCharacter::ServerOverlapGroundItems_Implementation()
+{
+	OverlapGroundItems();
+}
+
+void ASurvivalCharacter::ServerHarvestMontage_Implementation()
+{
+	if (!bIsHarvesting)
+	{
+		bIsHarvesting = true;
+		if (UAnimInstance* AnimInstance = Mesh3P->GetAnimInstance())
+		{
+			AnimInstance->Montage_Play(PickUpMontage);
+			ClientMontage(PickUpMontage);
+			MontageMulticast(PickUpMontage);
+		}
+	}
 }
 
 // 接口实现

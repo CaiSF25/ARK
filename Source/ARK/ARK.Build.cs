@@ -16,7 +16,12 @@ public class ARK : ModuleRules
 			"InputCore", 
 			"EnhancedInput", 
 			"Slate", 
-			"SlateCore"
+			"SlateCore",
+			"GeometryCollectionEngine",
+			"ChaosSolverEngine",
+			"FieldSystemEngine",
+			"Chaos",
+			"PhysicsCore"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });

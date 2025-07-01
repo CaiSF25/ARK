@@ -22,11 +22,18 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Mesh)
 	UStaticMeshComponent* StaticMesh;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Tool")
+	EHarvestingToolType ToolType;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Tool")
+	EToolTier ToolTier;
+
 private:
 	bool IsSwinging = false;
 
+	UPROPERTY()
 	ASurvivalCharacter* Character;
-	
+
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Animation)
 	UAnimMontage* FirstPersonMontage;
@@ -40,11 +47,18 @@ public:
 	UFUNCTION(Client, Reliable, BlueprintCallable)
 	void ClientGetRotation();
 
-	UFUNCTION(Server, Reliable, BlueprintCallable)
-	void ServerOverlap(FVector SpherePos);
-
+	void OnOverlap(const FVector& SpherePos);
+	
 	UFUNCTION(BlueprintCallable)
-	void HarvestFoliage(float Damage, AActor* Ref);
+	void HarvestFoliage(const float Damage, AActor* Ref) const;
+
+private:
+	// 逻辑操作
+	void Overlap(const FVector& SpherePos);
+
+	// ServerFunction
+	UFUNCTION(Server, Reliable)
+	void ServerOverlap(const FVector& SpherePos);
 
 public:
 	// 接口实现

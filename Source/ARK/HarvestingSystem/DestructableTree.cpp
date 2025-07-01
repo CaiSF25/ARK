@@ -77,13 +77,13 @@ void ADestructableTree::BeginPlay()
 	Super::BeginPlay();
 	
 	AddForce();
-	if (UWorld* World = GetWorld())
+	if (const UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().SetTimer(
 			DelayHandle,                       // 记录这个定时器
 			this,                                  // 回调目标对象
 			&ADestructableTree::OnDelayFinished,   // 回调函数
-			10.f,                                  // Delay 时长（秒）
+			15.f,                                  // Delay 时长（秒）
 			false                                  // bLoop = false（只调用一次）
 		);
 	}
