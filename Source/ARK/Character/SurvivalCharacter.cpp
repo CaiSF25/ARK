@@ -13,6 +13,7 @@
 #include "ARK/Interfaces/GroundItemInterface.h"
 #include "ARK/Items/Equipables/FirstPersonEquipable.h"
 #include "Components/ArrowComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
@@ -248,47 +249,54 @@ void ASurvivalCharacter::SpawnEquipableThirdPerson(TSubclassOf<AActor> Class, FI
 
 void ASurvivalCharacter::OverlapGroundItems()
 {
-	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
-	// ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel1));
-	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
+	if (!IsValid(ThirdPersonEquippedItem))
+	{
+		if (!bIsHarvesting)
+		{
+			bIsHarvesting = true;
+			TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+			// ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel1));
+			ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
 
-	const TSubclassOf<AActor> ClassFilter = nullptr;
+			const TSubclassOf<AActor> ClassFilter = nullptr;
 
-	const TArray<AActor*> ActorsToIgnore = { this };
+			const TArray<AActor*> ActorsToIgnore = { this };
 
-	TArray<AActor*> OutActors;
+			TArray<AActor*> OutActors;
 	
-	if (UKismetSystemLibrary::SphereOverlapActors(
-		this,
-		GetActorLocation(),
-		70.f,
-		ObjectTypes,
-		ClassFilter,
-		ActorsToIgnore, 
-		OutActors
-		))
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, "We Hit a Bush");
-		HarvestGroundItem(OutActors[0]);
-		OnHarvestMontage();
-	}
-	else
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, "No Hit");
-	}
+			if (UKismetSystemLibrary::SphereOverlapActors(
+				this,
+				GetActorLocation(),
+				70.f,
+				ObjectTypes,
+				ClassFilter,
+				ActorsToIgnore, 
+				OutActors
+				))
+			{
+				HarvestGroundItem(OutActors[0]);
+				OnHarvestMontage();
+			}
+			else
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, "No Hit");
+				bIsHarvesting = false;
+			}
 
-	const UWorld* World = GetWorld();
-	DrawDebugSphere(
-		World,
-		GetActorLocation(),
-		70.f,
-		12,
-		FColor::Red,
-		false,
-		3,
-		0,
-		2
-		);
+			const UWorld* World = GetWorld();
+			/*DrawDebugSphere(
+				World,
+				GetActorLocation(),
+				70.f,
+				12,
+				FColor::Red,
+				false,
+				3,
+				0,
+				2
+				);*/
+		}
+	}
 }
 
 void ASurvivalCharacter::SpawnEquipableFirstPerson_Implementation(TSubclassOf<AActor> Class, FName SocketName)
@@ -395,15 +403,17 @@ void ASurvivalCharacter::OnHarvestMontage()
 {
 	if (HasAuthority())
 	{
-		if (!bIsHarvesting)
+		if (UAnimInstance* AnimInstance = Mesh3P->GetAnimInstance())
 		{
-			bIsHarvesting = true;
-			if (UAnimInstance* AnimInstance = Mesh3P->GetAnimInstance())
-			{
-				AnimInstance->Montage_Play(PickUpMontage);
-				ClientMontage(PickUpMontage);
-				MontageMulticast(PickUpMontage);
-			}
+			AnimInstance->Montage_Play(PickUpMontage);
+
+			FOnMontageEnded MontageEndedDelegate;
+			MontageEndedDelegate.BindUObject(this, &ASurvivalCharacter::OnMontageCompleted);
+			AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate);
+				
+			ClientMontage(PickUpMontage);
+			MontageMulticast(PickUpMontage);
+			MulticastBush();
 		}
 	}
 	else
@@ -588,6 +598,34 @@ void ASurvivalCharacter::HarvestGroundItem(AActor* Ref)
 	}
 }
 
+void ASurvivalCharacter::MulticastBush_Implementation()
+{
+	if (const UWorld* World = GetWorld())
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, TEXT("MulticastBush"));
+		UGameplayStatics::SpawnEmitterAtLocation(
+			World,
+			BushHarvestParticle,
+			GetActorLocation()
+	   );
+
+		UGameplayStatics::PlaySoundAtLocation(
+			World,
+			BushHarvestSound,
+			GetActorLocation(),
+			1,
+			1,
+			0,
+			BushHarvestAttenuation
+			);
+	}
+}
+
+void ASurvivalCharacter::OnMontageCompleted(UAnimMontage* Montage, bool bInterrupted)
+{
+	bIsHarvesting = false;
+}
+
 void ASurvivalCharacter::HandleSlotDrop(EContainerType FromContainer, EContainerType TargetContainer, int32 FromIndex, int32 DroppedIndex, EArmorType ArmorType)
 {
 	switch (TargetContainer)
@@ -650,15 +688,17 @@ void ASurvivalCharacter::ServerOverlapGroundItems_Implementation()
 
 void ASurvivalCharacter::ServerHarvestMontage_Implementation()
 {
-	if (!bIsHarvesting)
+	if (UAnimInstance* AnimInstance = Mesh3P->GetAnimInstance())
 	{
-		bIsHarvesting = true;
-		if (UAnimInstance* AnimInstance = Mesh3P->GetAnimInstance())
-		{
-			AnimInstance->Montage_Play(PickUpMontage);
-			ClientMontage(PickUpMontage);
-			MontageMulticast(PickUpMontage);
-		}
+		AnimInstance->Montage_Play(PickUpMontage);
+
+		FOnMontageEnded MontageEndedDelegate;
+		MontageEndedDelegate.BindUObject(this, &ASurvivalCharacter::OnMontageCompleted);
+		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate);
+			
+		ClientMontage(PickUpMontage);
+		MontageMulticast(PickUpMontage);
+		MulticastBush();
 	}
 }
 

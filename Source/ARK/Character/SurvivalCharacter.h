@@ -10,6 +10,7 @@
 #include "ARK/Interfaces/SurvivalCharacterInterface.h"
 #include "ARK/Inventory/PlayerHotBar.h"
 #include "ARK/Items/EquipableInfo.h"
+#include "Sound/SoundCue.h"
 #include "SurvivalCharacter.generated.h"
 
 class UInputComponent;
@@ -113,6 +114,15 @@ protected:
 	void OnPickUpMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 	
 public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="VFX")
+	UParticleSystem* BushHarvestParticle;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="VFX")
+	USoundCue* BushHarvestSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="VFX")
+	USoundAttenuation* BushHarvestAttenuation;
+	
 	// 入口函数
 	void OnSlotDrop(
 		EContainerType FromContainer,
@@ -170,6 +180,13 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation", meta = (AllowPrivateAccess = "true"))
 	UAnimMontage* PickUpMontage;
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastBush();
+
+	// 回调函数
+	UFUNCTION()
+	void OnMontageCompleted(UAnimMontage* Montage, bool bInterrupted);
 	
 	// 交互逻辑
 	void HandleSlotDrop(

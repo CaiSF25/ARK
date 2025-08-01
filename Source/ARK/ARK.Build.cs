@@ -21,7 +21,8 @@ public class ARK : ModuleRules
 			"ChaosSolverEngine",
 			"FieldSystemEngine",
 			"Chaos",
-			"PhysicsCore"
+			"PhysicsCore",
+			"AugmentedReality"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });

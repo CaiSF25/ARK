@@ -150,7 +150,7 @@ void ATP_Hatchet::Overlap(const FVector& SpherePos, const FRotator& Rotation)
 	}
 
 	UWorld* World = GetWorld();
-	DrawDebugSphere(
+	/*DrawDebugSphere(
 		World,
 		SpherePos,
 		60.f,
@@ -160,7 +160,7 @@ void ATP_Hatchet::Overlap(const FVector& SpherePos, const FRotator& Rotation)
 		10,
 		0,
 		2
-		);
+		);*/
 }
 
 void ATP_Hatchet::MulticastHitFX_Implementation(FVector Location, FRotator Rotation)
@@ -177,6 +177,23 @@ void ATP_Hatchet::MulticastHitFX_Implementation(FVector Location, FRotator Rotat
 			Location,
 			EndLocation,
 			ECC_Visibility
+			);
+
+		UGameplayStatics::SpawnEmitterAtLocation(
+			World,
+			PickaxeHitParticle,
+			HitResult.Location
+			);
+
+		UGameplayStatics::PlaySoundAtLocation(
+			World,
+			HitSound,
+			Location,
+			FRotator(0, 0, 0),
+			1,
+			1,
+			0,
+			DestructionAttenuation
 			);
 	}
 }

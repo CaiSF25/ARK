@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "../ThirdPersonEquipable.h"
 #include "ARK/Character/SurvivalCharacter.h"
+#include "Sound/SoundCue.h"
 #include "TP_Hatchet.generated.h"
 
 /**
@@ -43,6 +44,15 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="DataTable")
 	UDataTable* LargeItemResourceTable;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="VFX")
+	UParticleSystem* PickaxeHitParticle;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="VFX")
+	USoundCue* HitSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="VFX")
+	USoundAttenuation* DestructionAttenuation;
 	
 	UFUNCTION(Client, Reliable, BlueprintCallable)
 	void ClientGetRotation();
