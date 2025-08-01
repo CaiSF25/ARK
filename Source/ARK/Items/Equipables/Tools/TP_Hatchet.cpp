@@ -3,6 +3,7 @@
 
 #include "TP_Hatchet.h"
 
+#include "ARSessionConfig.h"
 #include "ARK/HarvestingSystem/DestructableHarvestable.h"
 #include "ARK/HarvestingSystem/LargeItem.h"
 #include "ARK/HarvestingSystem/LargeItemMaster.h"
@@ -18,9 +19,9 @@ ATP_Hatchet::ATP_Hatchet()
 	LargeItemResourceTable = CreateDefaultSubobject<UDataTable>("LargeItemTable");
 }
 
-void ATP_Hatchet::ServerOverlap_Implementation(const FVector& SpherePos)
+void ATP_Hatchet::ServerOverlap_Implementation(const FVector& SpherePos, const FRotator& Rotation)
 {
-	Overlap(SpherePos);
+	Overlap(SpherePos, Rotation);
 }
 
 void ATP_Hatchet::ClientGetRotation_Implementation()
@@ -28,19 +29,19 @@ void ATP_Hatchet::ClientGetRotation_Implementation()
 	AActor* LocalOwner = GetOwner();
 	if (LocalOwner->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
 	{
-		OnOverlap(ISurvivalCharacterInterface::Execute_GetArrowLocation(LocalOwner));
+		OnOverlap(ISurvivalCharacterInterface::Execute_GetArrowLocation(LocalOwner), ISurvivalCharacterInterface::Execute_GetArrowRotation(LocalOwner));
 	}
 }
 
-void ATP_Hatchet::OnOverlap(const FVector& SpherePos)
+void ATP_Hatchet::OnOverlap(const FVector& SpherePos, const FRotator& Rotation)
 {
 	if (HasAuthority())
 	{
-		Overlap(SpherePos);
+		Overlap(SpherePos, Rotation);
 	}
 	else
 	{
-		ServerOverlap(SpherePos);
+		ServerOverlap(SpherePos, Rotation);
 	}
 }
 
@@ -115,7 +116,7 @@ void ATP_Hatchet::HarvestFoliage(const float Damage, AActor* Ref) const
 	}
 }
 
-void ATP_Hatchet::Overlap(const FVector& SpherePos)
+void ATP_Hatchet::Overlap(const FVector& SpherePos, const FRotator& Rotation)
 {
 	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
 	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel1));
@@ -140,6 +141,7 @@ void ATP_Hatchet::Overlap(const FVector& SpherePos)
 		for (int i = 0; i < OutActors.Num(); i++)
 		{
 			HarvestFoliage(15, OutActors[i]);
+			MulticastHitFX(SpherePos, Rotation);
 		}
 	}
 	else
@@ -159,6 +161,24 @@ void ATP_Hatchet::Overlap(const FVector& SpherePos)
 		0,
 		2
 		);
+}
+
+void ATP_Hatchet::MulticastHitFX_Implementation(FVector Location, FRotator Rotation)
+{
+	if (UWorld* World = GetWorld())
+	{
+		FHitResult HitResult;
+		constexpr float TraceDistance = 100.f;
+		const FVector ForwardVector = Rotation.Vector() * TraceDistance;
+		const FVector EndLocation = Location + ForwardVector;
+		
+		World->LineTraceSingleByChannel(
+			HitResult,
+			Location,
+			EndLocation,
+			ECC_Visibility
+			);
+	}
 }
 
 // 接口实现

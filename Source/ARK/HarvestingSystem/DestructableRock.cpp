@@ -6,6 +6,7 @@
 #include "DestructionForce.h"
 #include "GeometryCollection/GeometryCollectionComponent.h"
 #include "GeometryCollection/GeometryCollectionObject.h"
+#include "Kismet/GameplayStatics.h"
 
 ADestructableRock::ADestructableRock()
 {
@@ -33,6 +34,8 @@ void ADestructableRock::BeginPlay()
 				FRotator(0, 0, 0)
 				);
 
+			MulticastFX();
+
 			World->GetTimerManager().SetTimer(
 				DelayHandle,                       // 记录这个定时器
 				this,                                  // 回调目标对象
@@ -47,4 +50,38 @@ void ADestructableRock::BeginPlay()
 void ADestructableRock::OnDelayFinished()
 {
 	Destroy();
+}
+
+void ADestructableRock::MulticastFX_Implementation()
+{
+	if (!DestructionParticle)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("未设置粒子系统资源"));
+		return;
+	}
+	
+	const UWorld* World = GetWorld();
+	if (!World) return;
+
+	const FVector SpawnLocation = GetActorLocation();
+	const FRotator DefaultRotation = FRotator::ZeroRotator;
+	const FVector DefaultScale = FVector(1.0f);
+	UGameplayStatics::SpawnEmitterAtLocation(
+		World,
+		DestructionParticle,
+		SpawnLocation,
+		DefaultRotation,
+		DefaultScale
+	);
+
+	UGameplayStatics::PlaySoundAtLocation(
+		World,
+		DestructionSound,
+		SpawnLocation,
+		DefaultRotation,
+		1.0,
+		1.0,
+		0.0,
+		DestructionAttenuation
+	);
 }

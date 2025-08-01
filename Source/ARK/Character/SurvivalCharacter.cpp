@@ -690,3 +690,9 @@ FVector ASurvivalCharacter::GetArrowLocation_Implementation()
 	return ArrowLocation;
 }
 
+FRotator ASurvivalCharacter::GetArrowRotation_Implementation()
+{
+	const FRotator ArrowRotation = Arrow1->GetComponentRotation();
+	return ArrowRotation;
+}
+

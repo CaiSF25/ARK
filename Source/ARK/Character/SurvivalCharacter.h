@@ -242,4 +242,6 @@ public:
 	virtual void FirstPersonMontage_Implementation(UAnimMontage* FirstPersonMontage) override;
 
 	virtual FVector GetArrowLocation_Implementation() override;
+
+	virtual FRotator GetArrowRotation_Implementation() override;
 };

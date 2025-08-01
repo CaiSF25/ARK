@@ -47,18 +47,21 @@ public:
 	UFUNCTION(Client, Reliable, BlueprintCallable)
 	void ClientGetRotation();
 
-	void OnOverlap(const FVector& SpherePos);
+	void OnOverlap(const FVector& SpherePos, const FRotator& Rotation);
 	
 	UFUNCTION(BlueprintCallable)
 	void HarvestFoliage(const float Damage, AActor* Ref) const;
 
 private:
 	// 逻辑操作
-	void Overlap(const FVector& SpherePos);
+	void Overlap(const FVector& SpherePos, const FRotator& Rotation);
 
 	// ServerFunction
 	UFUNCTION(Server, Reliable)
-	void ServerOverlap(const FVector& SpherePos);
+	void ServerOverlap(const FVector& SpherePos, const FRotator& Rotation);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastHitFX(FVector Location, FRotator Rotation);
 
 public:
 	// 接口实现

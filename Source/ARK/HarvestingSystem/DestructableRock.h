@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "DestructableHarvestable.h"
+#include "Sound/SoundCue.h"
 #include "DestructableRock.generated.h"
 
 class ADestructionForce;
@@ -21,6 +22,16 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="VFX")
+	UParticleSystem* DestructionParticle;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="VFX")
+	USoundCue* DestructionSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="VFX")
+	USoundAttenuation* DestructionAttenuation;
 	
 protected:
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category="Root")
@@ -34,4 +45,7 @@ private:
 
 	UFUNCTION()
 	void OnDelayFinished();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastFX();
 };

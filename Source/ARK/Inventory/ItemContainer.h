@@ -20,7 +20,6 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
-
 	
 public:
 	UFUNCTION(BlueprintCallable, Category="Inventory")
@@ -79,4 +78,6 @@ private:
 	UFUNCTION(BlueprintPure)
 	bool IsSlotEmpty(int32 SlotIndex) const;
 
+	UFUNCTION()
+	bool HasItemsToStack(const FItemInfo& ItemInfo) const;
 };

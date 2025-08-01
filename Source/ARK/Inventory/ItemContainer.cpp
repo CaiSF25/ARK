@@ -25,16 +25,170 @@ void UItemContainer::BeginPlay()
 
 bool UItemContainer::AddItem(const FItemInfo& Item)
 {
-	const int32 Index = FindEmptySlot();
-	if (Index == -1) return false;
-	Items[Index] = Item;
-	UpdateUI(Index, Item, false);
+	// 不可堆叠物品
+	if (!Item.IsStackable)
+	{
+		const int32 Index = FindEmptySlot();
+		if (Index == -1) return false;
+		Items[Index] = Item;
+		UpdateUI(Index, Item, false);
+		return true;
+	}
+	int32 Remaining = Item.ItemQuantity;
+
+	// 可堆叠物品： 优先堆叠到现有槽位
+	for (int32 Index = 0; Index < Items.Num() && Remaining > 0; Index++)
+	{
+		FItemInfo& ExistingItem = Items[Index];
+
+		// 检查是否可堆叠
+		if (ExistingItem.ItemID == Item.ItemID && ExistingItem.ItemQuantity < ExistingItem.StackSize)
+		{
+			const int32 SpaceLeft = ExistingItem.StackSize - ExistingItem.ItemQuantity;
+			const int32 ToAdd = FMath::Min(SpaceLeft, Remaining);
+
+			ExistingItem.ItemQuantity += ToAdd;
+			Remaining -= ToAdd;
+			UpdateUI(Index, ExistingItem, false);
+		}
+	}
+
+	// 将剩余物品放入物品槽
+	while (Remaining > 0)
+	{
+		const int32 SlotIndex = FindEmptySlot();
+		if (SlotIndex == -1)
+			return false;   // 空间不足
+
+		const int32 ToAdd = FMath::Min(Remaining, Item.StackSize);
+		FItemInfo NewItem = Item;
+		NewItem.ItemQuantity  = ToAdd;
+
+		Items[SlotIndex] = NewItem;
+		Remaining -= ToAdd;
+		UpdateUI(SlotIndex, NewItem, false);
+	}
 	return true;
+	
+	/*for (int32 Index = 0; Index < Items.Num() && Remaining.ItemQuantity > 0; Index++)
+	{
+		if (Items[Index].ItemID == LocalItem.ItemID && Items[Index].ItemQuantity < Items[Index].StackSize)
+		{
+			const int32 SpaceAvailable = Items[Index].StackSize - Items[Index].ItemQuantity;
+			const int32 AmountToAdd = FMath::Min(SpaceAvailable, Remaining.ItemQuantity);
+			const int32 MaxStackSize = Items[Index].StackSize;
+			const int32 TempSlotQuantity = Items[Index].ItemQuantity;
+			int32 TotalItemQuantity = Item.ItemQuantity;
+			const int32 CurSlotQuantity = TempSlotQuantity + TotalItemQuantity >= MaxStackSize ? MaxStackSize : TempSlotQuantity + TotalItemQuantity;
+			LocalItem.ItemQuantity = CurSlotQuantity;
+			Items[Index] = LocalItem;
+			UpdateUI(Index, LocalItem, false);
+			TotalItemQuantity = TempSlotQuantity + TotalItemQuantity >= MaxStackSize ? FMath::Clamp(TempSlotQuantity - (MaxStackSize - TempSlotQuantity), 0, TotalItemQuantity) : 0;
+			LocalItem.ItemQuantity = TotalItemQuantity;
+		}
+	}
+	
+	if (Item.IsStackable)
+	{
+		if (HasItemsToStack(Item))
+		{
+			for (int Index = 0; Index < Items.Num(); Index++)
+			{
+				if (Items[Index].ItemID == LocalItem.ItemID && Items[Index].ItemQuantity < Items[Index].StackSize)
+				{
+					const int32 MaxStackSize = Items[Index].StackSize;
+					const int32 TempSlotQuantity = Items[Index].ItemQuantity;
+					int32 TotalItemQuantity = Item.ItemQuantity;
+					const int32 CurSlotQuantity = TempSlotQuantity + TotalItemQuantity >= MaxStackSize ? MaxStackSize : TempSlotQuantity + TotalItemQuantity;
+					LocalItem.ItemQuantity = CurSlotQuantity;
+					Items[Index] = LocalItem;
+					UpdateUI(Index, LocalItem, false);
+					TotalItemQuantity = TempSlotQuantity + TotalItemQuantity >= MaxStackSize ? FMath::Clamp(TempSlotQuantity - (MaxStackSize - TempSlotQuantity), 0, TotalItemQuantity) : 0;
+					LocalItem.ItemQuantity = TotalItemQuantity;
+				}
+			}
+			if (LocalItem.ItemQuantity > 0)
+			{
+				if (Item.ItemQuantity > Item.StackSize)
+				{
+					int32 TotalItemQuantity = Item.ItemQuantity;
+					const int32 MaxStackSize = Item.StackSize;
+					while (TotalItemQuantity > 0)
+					{
+						if (const int32 EmptySlot = FindEmptySlot())
+						{
+							constexpr int32 TempSlotQuantity = 0;
+							const int32 CurSlotQuantity = TempSlotQuantity + TotalItemQuantity >= MaxStackSize ? MaxStackSize : TempSlotQuantity + TotalItemQuantity;
+							LocalItem.ItemQuantity = CurSlotQuantity;
+							Items[EmptySlot] = LocalItem;
+							UpdateUI(EmptySlot, LocalItem, false);
+							TotalItemQuantity = TempSlotQuantity + TotalItemQuantity >= MaxStackSize ? FMath::Clamp(TempSlotQuantity - (MaxStackSize - TempSlotQuantity), 0, TotalItemQuantity) : 0;
+						}
+						else
+						{
+							return true;
+						}
+					}
+					return true;
+				}
+				else
+				{
+					const int32 Index = FindEmptySlot();
+					if (Index == -1) return false;
+					Items[Index] = Item;
+					UpdateUI(Index, Item, false);
+					return true;
+				}
+			}
+			else return true;
+		}
+		else
+		{
+			if (Item.ItemQuantity > Item.StackSize)
+			{
+				int32 TotalItemQuantity = Item.ItemQuantity;
+				const int32 MaxStackSize = Item.StackSize;
+				while (TotalItemQuantity > 0)
+				{
+					if (const int32 EmptySlot = FindEmptySlot())
+					{
+						constexpr int32 TempSlotQuantity = 0;
+						const int32 CurSlotQuantity = TempSlotQuantity + TotalItemQuantity >= MaxStackSize ? MaxStackSize : TempSlotQuantity + TotalItemQuantity;
+						LocalItem.ItemQuantity = CurSlotQuantity;
+						Items[EmptySlot] = LocalItem;
+						UpdateUI(EmptySlot, LocalItem, false);
+						TotalItemQuantity = TempSlotQuantity + TotalItemQuantity >= MaxStackSize ? FMath::Clamp(TempSlotQuantity - (MaxStackSize - TempSlotQuantity), 0, TotalItemQuantity) : 0;
+					}
+					else
+					{
+						return true;
+					}
+				}
+				return true;
+			}
+			else
+			{
+				const int32 Index = FindEmptySlot();
+				if (Index == -1) return false;
+				Items[Index] = Item;
+				UpdateUI(Index, Item, false);
+				return true;
+			}
+		}
+		return true;
+	}
+	else
+	{
+		const int32 Index = FindEmptySlot();
+		if (Index == -1) return false;
+		Items[Index] = Item;
+		UpdateUI(Index, Item, false);
+		return true;
+	}*/
 }
 
 void UItemContainer::ServerAddItem_Implementation(const FItemInfo& Item)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Add Item");
 	AddItem(Item);
 }
 
@@ -144,7 +298,19 @@ bool UItemContainer::IsSlotEmpty(int32 SlotIndex) const
 	return Items[SlotIndex].ItemID == 0;
 }
 
-
+bool UItemContainer::HasItemsToStack(const FItemInfo& ItemInfo) const
+{
+	bool ExistsInInventory = false;
+	for (int32 Index = 0; Index < Items.Num(); Index++)
+	{
+		if (Items[Index].ItemID == ItemInfo.ItemID && Items[Index].ItemQuantity < Items[Index].StackSize)
+		{
+			ExistsInInventory = true;
+			break;
+		}
+	}
+	return ExistsInInventory;
+}
 
 
 
