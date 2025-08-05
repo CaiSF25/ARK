@@ -33,6 +33,7 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	const TArray<UInventorySlot*>& GetSlots() const { return Slots; }
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Setting", meta = (BindWidget))
 	class UUniformGridPanel* Grid;
