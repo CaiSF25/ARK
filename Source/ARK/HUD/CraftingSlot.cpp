@@ -3,42 +3,52 @@
 
 #include "CraftingSlot.h"
 
+#include "ARK/Character/SurvivalPlayerController.h"
+#include "ARK/Interfaces/GroundItemInterface.h"
 #include "Components/Button.h"
+
+void UCraftingSlot::OnSelectItemButtonClicked()
+{
+	const ASurvivalPlayerController* Controller = Cast<ASurvivalPlayerController>(GetOwningPlayer());
+
+	Controller->GetMainWidget()->GetInventoryWidget()->GetCraftingWindow()->ShowItemRequirements(ItemID);
+}
 
 void UCraftingSlot::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	auto MakeBrush = [&](UTexture2D* Texture)->FSlateBrush
+	if (SelectItemButton)
 	{
-		FSlateBrush Brush;
-		Brush.SetResourceObject(Texture);
-		return Brush;
-	};
+		auto MakeBrush = [&](UTexture2D* Texture, const FLinearColor& Color)->FSlateBrush
+		{
+			FSlateBrush Brush;
+			if (Texture)
+			{
+				Brush.SetResourceObject(Texture);
+				Brush.TintColor = Color;
+			}
+			return Brush;
+		};
 
-	auto MakeColor = [&](const FLinearColor& C)->FSlateColor
-	{
-		return FSlateColor(C);
-	};
+		FButtonStyle ButtonStyle;
 
-	FButtonStyle ButtonStyle;
+		// Normal
+		ButtonStyle.SetNormal(MakeBrush(ImageTexture, FLinearColor::White));
 
-	// Normal
-	ButtonStyle.SetNormal   ( MakeBrush(NormalTex) );
-	ButtonStyle.SetNormalForeground(MakeColor(FLinearColor::Yellow));
+		// Hovered
+		ButtonStyle.SetHovered(MakeBrush(ImageTexture, FLinearColor::Yellow));
 
-	// Hovered
-	ButtonStyle.SetHovered  ( MakeBrush(HoveredTex) );
-	ButtonStyle.SetHoveredForeground(MakeColor(FLinearColor::Green));
+		// Pressed
+		ButtonStyle.SetPressed(MakeBrush(ImageTexture, FLinearColor::Green));
 
-	// Pressed
-	ButtonStyle.SetPressed  ( MakeBrush(PressedTex) );
-	ButtonStyle.SetPressedForeground(MakeColor(FLinearColor::Red));
+		// Disabled（如果需要也可填）
+		// ButtonStyle.SetDisabled( … );
+		// ButtonStyle.SetDisabledForeground( … );
 
-	// Disabled（如果需要也可填）
-	// ButtonStyle.SetDisabled( … );
-	// ButtonStyle.SetDisabledForeground( … );
+		// —— 4. 应用到按钮 —— 
+		SelectItemButton->SetStyle(ButtonStyle);
 
-	// —— 4. 应用到按钮 —— 
-	SelectItemButton->SetStyle(ButtonStyle);
+		SelectItemButton->OnClicked.AddDynamic(this, &UCraftingSlot::OnSelectItemButtonClicked);
+	}
 }

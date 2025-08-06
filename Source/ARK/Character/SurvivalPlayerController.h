@@ -38,7 +38,9 @@ public:
 
 	UFUNCTION(Client, Reliable, BlueprintCallable)
 	void ShowItemWidget(UTexture2D* ResourceImage, int32 ResourceQuantity, const FText& ResourceName);
-	
+
+	UFUNCTION()
+	UMainWidget* GetMainWidget() const { return MainWidget; }
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
 	TSubclassOf<UMainWidget> WidgetClass;

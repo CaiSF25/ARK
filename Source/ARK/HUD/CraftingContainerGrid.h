@@ -48,6 +48,4 @@ protected:
 	void AddSlots(const ECraftingType LocalCraftingType);
 
 	void AddSlotToGrid(int32 Index, UCraftingSlot* SlotToAdd);
-	
-	
 };

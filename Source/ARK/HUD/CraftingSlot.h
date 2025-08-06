@@ -25,6 +25,9 @@ public:
 
 	void SetItemIndex(const int32 LocalItemIndex) {ItemIndex = LocalItemIndex;}
 
+	UFUNCTION()
+	void OnSelectItemButtonClicked();
+	
 protected:
 	virtual void NativeConstruct() override;
 	
@@ -43,15 +46,6 @@ protected:
 
 	UPROPERTY()
 	int32 ItemIndex;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Style")
-	UTexture2D* NormalTex;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Style")
-	UTexture2D* HoveredTex;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Style")
-	UTexture2D* PressedTex;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (BindWidget))
 	UButton* SelectItemButton;

@@ -35,5 +35,4 @@ void UItemContainerGrid::AddSlotToGrid(int32 Index, UInventorySlot* LocalSlots)
 	const int32 Column = Index % SlotsPerRow;
 
 	Grid->AddChildToUniformGrid(LocalSlots, Row, Column);
-
 }
