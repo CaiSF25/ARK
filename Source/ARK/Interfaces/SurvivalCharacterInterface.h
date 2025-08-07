@@ -3,10 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ARK/Character/SurvivalPlayerController.h"
 #include "UObject/Interface.h"
 #include "SurvivalCharacterInterface.generated.h"
 
+class ASurvivalPlayerController;
 // This class does not need to be modified.
 UINTERFACE(MinimalAPI, Blueprintable)
 class USurvivalCharacterInterface : public UInterface

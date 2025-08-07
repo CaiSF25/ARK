@@ -4,6 +4,7 @@
 #include "ItemContainer.h"
 
 #include "ARK/Character/SurvivalCharacter.h"
+#include "ARK/Character/SurvivalPlayerController.h"
 
 UItemContainer::UItemContainer()
 {
@@ -282,6 +283,50 @@ void UItemContainer::TransferItem(UItemContainer* ToComponent, const int32 ToSpe
 FItemInfo UItemContainer::GetItemAtIndex(const int32 Index) const
 {
 	return Items.IsValidIndex(Index) ? Items[Index] : FItemInfo();
+}
+
+bool UItemContainer::ContainsItems(TArray<FItemStructure>& RequiredItems)
+{
+	TMap<int32, int32> InventoryCount;
+	for (const auto& Slot : Items)
+	{
+		InventoryCount.FindOrAdd(Slot.ItemID) += Slot.ItemQuantity;
+	}
+
+	for (const auto& Req : RequiredItems)
+	{
+		int32* FoundQty = InventoryCount.Find(Req.ItemID);
+
+		if (!FoundQty || *FoundQty < Req.ItemQuantity)
+		{
+			return false;
+		}
+		*FoundQty -= Req.ItemQuantity;
+	}
+	return true;
+	
+	TArray<FItemStructure> HasItems = RequiredItems;
+	for (int32 Index = 0; Index < RequiredItems.Num(); Index++)
+	{
+		for (int32 ItemIndex = 0; ItemIndex < Items.Num(); ItemIndex++)
+		{
+			if (RequiredItems[Index].ItemID == Items[ItemIndex].ItemID && RequiredItems[Index].ItemQuantity <= Items[ItemIndex].ItemQuantity)
+			{
+				for (int32 i = 0; i < HasItems.Num(); i++)
+				{
+					if (HasItems[i].ItemID ==  RequiredItems[Index].ItemID)
+					{
+						HasItems.RemoveAt(i);
+					}
+				}
+			}
+		}
+	}
+	if (HasItems.IsEmpty())
+	{
+		return true;
+	}
+	return false;
 }
 
 void UItemContainer::HandleSlotDrop(UItemContainer* FromContainer, int32 FromIndex, int32 DroppedIndex)

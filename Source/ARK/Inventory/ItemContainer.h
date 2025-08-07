@@ -8,6 +8,8 @@
 #include "ItemContainer.generated.h"
 
 
+struct FItemStructure;
+
 UCLASS( ClassGroup = (Custom), meta = (BlueprintSpawnableComponent), BlueprintType)
 class ARK_API UItemContainer : public UActorComponent
 {
@@ -63,6 +65,10 @@ public:
 	FItemInfo GetItemAtIndex(const int32 Index) const;
 
 	TArray<FItemInfo> GetItems() const { return Items; }
+
+	UFUNCTION()
+	bool ContainsItems(TArray<FItemStructure>& RequiredItems);
+	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Inventory")
 	TArray<FItemInfo> Items;

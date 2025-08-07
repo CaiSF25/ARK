@@ -85,12 +85,16 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Inventory", meta = (AllowPrivateAccess = "true"))
 	UPlayerHotBar* PlayerHotBar;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "DataTable", meta = (AllowPrivateAccess = "true"))
-	UDataTable* DataTable;
-
+	// 数据表
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "DataTable", meta = (AllowPrivateAccess = "true"))
 	UDataTable* GroundResourcesTable;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "DataTable", meta = (AllowPrivateAccess = "true"))
+	UDataTable* ItemsDataTable;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="DataTable", meta = (AllowPrivateAccess = "true"))
+	UDataTable* PlayerItemRecipe;
+	
 protected:
 	// 核心动作
 	void Move(const FInputActionValue& Value);
@@ -138,6 +142,8 @@ public:
 
 	void OnSpawnEquipableThirdPerson(TSubclassOf<AActor> Class, FItemInfo ItemInfo, int32 LocalEquippedIndex);
 
+	void OnCheckIfCanCraftItem(int32 ID, const EContainerType& Container, const ECraftingType& TableType);
+	
 	UPROPERTY(Replicated, EditAnywhere,BlueprintReadWrite, Category="Input")
 	EEquipableState EquipableState = EEquipableState::Default;
 
@@ -206,6 +212,8 @@ private:
 	void SpawnEquipableThirdPerson(TSubclassOf<AActor> Class, FItemInfo ItemInfo, int32 LocalEquippedIndex);
 
 	void OverlapGroundItems();
+
+	bool CheckIfCanCraftItem(int32 ID, const EContainerType& Container, const ECraftingType& TableType);
 	
 	// 入口函数
 	void Hotbar(int32 Index);
@@ -247,6 +255,9 @@ private:
 
 	UFUNCTION(Server, Reliable)
 	void ServerHarvestMontage();
+
+	UFUNCTION(Server, Reliable)
+	void ServerCheckIfCanCraftItem(int32 ID, const EContainerType& Container, const ECraftingType& TableType);
 	
 public:
 	// 接口实现

@@ -2,7 +2,6 @@
 
 
 #include "SurvivalPlayerController.h"
-
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "ARK/HUD/InventoryWidget.h"
@@ -83,8 +82,13 @@ UInventorySlot* ASurvivalPlayerController::GetInventoryWidget(EContainerType Con
 	return Slots[SlotIndex];
 }
 
+APlayerController* ASurvivalPlayerController::SurvivalGamePCRef_Implementation()
+{
+	return this;
+}
+
 void ASurvivalPlayerController::ShowItemWidget_Implementation(UTexture2D* ResourceImage, int32 ResourceQuantity,
-	const FText& ResourceName)
+                                                              const FText& ResourceName)
 {
 	MainWidget->ShowItemCollected(ResourceImage, ResourceQuantity, ResourceName);
 }

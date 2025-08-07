@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "ARK/HUD/MainWidget.h"
+#include "ARK/Interfaces/SurvivalCharacterInterface.h"
+#include "ARK/Interfaces/PlayerControllerInterface.h"
 #include "ARK/Inventory/ItemInfo.h"
 #include "GameFramework/PlayerController.h"
 #include "SurvivalPlayerController.generated.h"
@@ -12,7 +14,7 @@
  * 
  */
 UCLASS()
-class ARK_API ASurvivalPlayerController : public APlayerController
+class ARK_API ASurvivalPlayerController : public APlayerController, public IPlayerControllerInterface
 {
 	GENERATED_BODY()
 
@@ -41,6 +43,10 @@ public:
 
 	UFUNCTION()
 	UMainWidget* GetMainWidget() const { return MainWidget; }
+
+	// 接口实现
+	virtual APlayerController* SurvivalGamePCRef_Implementation() override;
+	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
 	TSubclassOf<UMainWidget> WidgetClass;

@@ -7,9 +7,11 @@
 #include "Components/ArrowComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "SurvivalPlayerController.h"
 #include "ARK/HarvestingSystem/DestructableHarvestable.h"
 #include "ARK/HarvestingSystem/GroundItemMaster.h"
 #include "ARK/HarvestingSystem/LargeItem.h"
+#include "ARK/HUD/CraftingStructs.h"
 #include "ARK/Interfaces/GroundItemInterface.h"
 #include "ARK/Items/Equipables/FirstPersonEquipable.h"
 #include "Components/ArrowComponent.h"
@@ -57,9 +59,6 @@ ASurvivalCharacter::ASurvivalCharacter()
 	PlayerHotBar = CreateDefaultSubobject<UPlayerHotBar>(TEXT("PlayerHotBar"));
 
 	// 数据表
-	DataTable = CreateDefaultSubobject<UDataTable>(TEXT("DataTable"));
-	GroundResourcesTable = CreateDefaultSubobject<UDataTable>(TEXT("GroundResources"));
-
 	bReplicates = true;
 	EquipableState = EEquipableState::Default;
 }
@@ -299,6 +298,56 @@ void ASurvivalCharacter::OverlapGroundItems()
 	}
 }
 
+bool ASurvivalCharacter::CheckIfCanCraftItem(int32 ID, const EContainerType& Container, const ECraftingType& TableType)
+{
+	UDataTable* DataTable = nullptr;
+	switch (TableType)
+	{
+	case ECraftingType::PlayerInventory:
+		if (PlayerItemRecipe)
+		{
+			DataTable = PlayerItemRecipe;
+		}
+		break;
+	case ECraftingType::CookingPot:
+		break;
+	case ECraftingType::CraftingBench:
+		break;
+	case ECraftingType::Forge:
+		break;
+	case ECraftingType::StorageBox:
+		break;
+	}
+	const FName RowName = FName(*FString::FromInt(ID));
+	
+	static const FString ContextString(TEXT("CheckIfCanCraftItem"));
+
+	UItemContainer* ItemContainer = nullptr;
+	
+	switch (Container)
+	{
+	case EContainerType::PlayerInventory:
+		ItemContainer = PlayerInventory;
+		break;
+	case EContainerType::PlayerHotbar:
+		ItemContainer = PlayerHotBar;
+		break;
+	}
+
+	const auto Row = DataTable->FindRow<FItemRecipe>(
+		RowName,
+		ContextString,
+		true
+		);
+
+	if (Row)
+	{
+		return ItemContainer->ContainsItems(Row->RequiredItems);
+	}
+
+	return false;
+}
+
 void ASurvivalCharacter::SpawnEquipableFirstPerson_Implementation(TSubclassOf<AActor> Class, FName SocketName)
 {
 	UWorld* World = GetWorld();
@@ -422,6 +471,19 @@ void ASurvivalCharacter::OnHarvestMontage()
 	}
 }
 
+void ASurvivalCharacter::OnCheckIfCanCraftItem(int32 ID, const EContainerType& Container,
+	const ECraftingType& TableType)
+{
+	if (HasAuthority())
+	{
+		CheckIfCanCraftItem(ID, Container, TableType);
+	}
+	else
+	{
+		ServerCheckIfCanCraftItem(ID, Container, TableType);
+	}
+}
+
 
 void ASurvivalCharacter::ServerAttack_Implementation()
 {
@@ -529,7 +591,7 @@ void ASurvivalCharacter::HarvestItem(FResourceStructure Resource)
 	const FName RowName = Resource.ResourceID;
 				
 	static const FString ContextString(TEXT("HandleTreeHit"));
-	FItemInfo* Row = DataTable->FindRow<FItemInfo>(
+	FItemInfo* Row = ItemsDataTable->FindRow<FItemInfo>(
 		RowName,
 		ContextString,
 		true
@@ -700,6 +762,12 @@ void ASurvivalCharacter::ServerHarvestMontage_Implementation()
 		MontageMulticast(PickUpMontage);
 		MulticastBush();
 	}
+}
+
+void ASurvivalCharacter::ServerCheckIfCanCraftItem_Implementation(int32 ID, const EContainerType& Container,
+	const ECraftingType& TableType)
+{
+	CheckIfCanCraftItem(ID, Container, TableType);
 }
 
 // 接口实现

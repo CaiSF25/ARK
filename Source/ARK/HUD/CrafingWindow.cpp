@@ -11,7 +11,11 @@
 #include "Components/ScrollBox.h"
 #include "Components/TextBlock.h"
 #include "CraftingIngredient.h"
+#include "ARK/Character/SurvivalCharacter.h"
+#include "ARK/Interfaces/SurvivalCharacterInterface.h"
 #include "Components/WidgetSwitcher.h"
+#include "GameFramework/Character.h"
+#include "Kismet/GameplayStatics.h"
 
 void UCrafingWindow::NativeConstruct()
 {
@@ -60,6 +64,7 @@ void UCrafingWindow::OnStructuresButtonClicked()
 
 void UCrafingWindow::ShowItemRequirements(int32 ItemID)
 {
+	ItemSelectedID = ItemID;
 	CraftRecipeInfo->SetActiveWidgetIndex(1);
 
 	const FName RowName = FName(*FString::FromInt(ItemID));
@@ -80,6 +85,17 @@ void UCrafingWindow::ShowItemRequirements(int32 ItemID)
 	if (Row)
 	{
 		SetupCraftingInfoTab(Row);
+
+		const UWorld* World = GetWorld();
+		if (!World) return;
+
+		ACharacter* PlayerCharacter = UGameplayStatics::GetPlayerCharacter(World, 0);
+		if (PlayerCharacter && PlayerCharacter->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
+		{
+			ASurvivalCharacter* Character = ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(PlayerCharacter);
+			Character->OnCheckIfCanCraftItem(ItemSelectedID, EContainerType::PlayerInventory, ECraftingType::PlayerInventory);
+			
+		}
 	}
 	else
 	{

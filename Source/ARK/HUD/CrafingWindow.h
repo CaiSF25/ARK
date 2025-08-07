@@ -90,4 +90,6 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	UScrollBox* RequiredItemsWidget;
+
+	int32 ItemSelectedID;
 };
