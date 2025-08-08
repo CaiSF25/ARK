@@ -31,6 +31,12 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ResetItemSlot(const EContainerType& Container, int32 Index);
 
+	UFUNCTION(Client, Reliable)
+	void UpdateCraftStatus(bool CanCraft);
+
+	UFUNCTION(Client, Reliable)
+	void ShowCraftingProgressBar(const float InTime);
+
 	// 按键触发时调用
 	UFUNCTION(BlueprintCallable, Category="UI")
 	void HandleToggleInventory();
@@ -45,7 +51,7 @@ public:
 	UMainWidget* GetMainWidget() const { return MainWidget; }
 
 	// 接口实现
-	virtual APlayerController* SurvivalGamePCRef_Implementation() override;
+	virtual AController* SurvivalGamePCRef_Implementation() override;
 	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
@@ -70,7 +76,4 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="UI", meta=(AllowPrivateAccess = "true"))
 	class UInputAction* OpenUIAction;
-	
-public:
-	
 };

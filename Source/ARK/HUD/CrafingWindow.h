@@ -7,6 +7,7 @@
 #include "Blueprint/UserWidget.h"
 #include "CrafingWindow.generated.h"
 
+class UBorder;
 class UCraftingIngredient;
 class UScrollBox;
 class UImage;
@@ -41,6 +42,12 @@ public:
 
 	UFUNCTION()
 	void ShowItemRequirements(int32 ItemID);
+
+	UFUNCTION()
+	void UpdateCraftingStatus(const bool CanCraft) const;
+
+	UFUNCTION()
+	void OnCraftItemButtonClicked();
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="ItemRequirements")
@@ -90,6 +97,12 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	UScrollBox* RequiredItemsWidget;
+
+	UPROPERTY(meta = (BindWidget))
+	UBorder* CanCraftBorder;
+
+	UPROPERTY(meta = (BindWidget))
+	UButton* CraftItemButton;
 
 	int32 ItemSelectedID;
 };

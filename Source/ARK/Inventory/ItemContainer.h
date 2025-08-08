@@ -52,7 +52,7 @@ public:
 	int32 FindEmptySlot() const;
 
 	UFUNCTION(BlueprintCallable, Category="Inventory")
-	void UpdateUI(int32 Index, const FItemInfo& Item, bool ResetSlot);
+	void UpdateUI(int32 Index, const FItemInfo& Item, bool ResetSlot) const;
 
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category="Inventory")
 	void ServerOnSlotDrop(UItemContainer* FromContainer, int32 FromIndex, int32 DroppedIndex);
@@ -68,6 +68,11 @@ public:
 
 	UFUNCTION()
 	bool ContainsItems(TArray<FItemStructure>& RequiredItems);
+
+	UFUNCTION()
+	void RemoveItems(TArray<FItemStructure>& ItemsToRemove);
+
+	TArray<int32> GetIndexesOfItem(const int32 ItemID) const;
 	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Inventory")

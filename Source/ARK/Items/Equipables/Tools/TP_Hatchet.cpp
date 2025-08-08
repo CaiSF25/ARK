@@ -106,7 +106,7 @@ void ATP_Hatchet::HarvestFoliage(const float Damage, AActor* Ref) const
 						
 							if (Character->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
 							{
-								ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(Character)->OnHarvestItem(HarvestItem);
+								Cast<ASurvivalCharacter>(ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(Character))->OnHarvestItem(HarvestItem);
 							}
 						}
 					} 

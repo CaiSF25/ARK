@@ -5,6 +5,7 @@
 
 #include "PlayerInventory.h"
 #include "ARK/Character/SurvivalCharacter.h"
+#include "ARK/Character/SurvivalPlayerController.h"
 
 UPlayerHotBar::UPlayerHotBar()
 {
@@ -30,7 +31,7 @@ bool UPlayerHotBar::AddItemToIndex(FItemInfo Item, int32 LocalSpecificIndex, int
 	if (Character->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
 	{
 		const ISurvivalCharacterInterface* Interface = Cast<ISurvivalCharacterInterface>(Character);
-		ASurvivalPlayerController* PlayerController = Interface->Execute_GetControllerFromChar(Character);
+		ASurvivalPlayerController* PlayerController = Cast<ASurvivalPlayerController>(Interface->Execute_GetControllerFromChar(Character));
 		if (!PlayerController) return false;
 		PlayerController->UpdateItemSlot(ContainerType, LocalSpecificIndex, GetItemAtIndex(LocalSpecificIndex));
 	}
@@ -49,7 +50,7 @@ bool UPlayerHotBar::RemoveItemAtIndex(const int32 Index)
 	if (Character->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
 	{
 		ISurvivalCharacterInterface* Interface = Cast<ISurvivalCharacterInterface>(Character);
-		ASurvivalPlayerController* PlayerController = Interface->Execute_GetControllerFromChar(Character);
+		ASurvivalPlayerController* PlayerController = Cast<ASurvivalPlayerController>(Interface->Execute_GetControllerFromChar(Character));
 		if (!PlayerController) return false;
 		PlayerController->ResetItemSlot(ContainerType, Index);
 		Character->OnDequipCurItem(Index);

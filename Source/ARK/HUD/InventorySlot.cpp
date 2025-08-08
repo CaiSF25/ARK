@@ -90,7 +90,7 @@ bool UInventorySlot::NativeOnDrop(const FGeometry& InGeometry, const FDragDropEv
 		{
 			if (BaseCharacter->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
 			{
-				if (ASurvivalCharacter* SurvivalCharacter = ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(BaseCharacter))
+				if (ASurvivalCharacter* SurvivalCharacter = Cast<ASurvivalCharacter>(ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(BaseCharacter)))
 				{
 					SurvivalCharacter->OnSlotDrop(LocalContainerType, ContainerType, LocalSlotIndex, ItemIndex, ArmorType);
 					return true;

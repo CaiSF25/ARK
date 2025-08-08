@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
 #include "ARK/HarvestingSystem/ResourceStructure.h"
+#include "ARK/HUD/CraftingStructs.h"
 #include "ARK/Inventory/PlayerInventory.h"
 #include "ARK/Interfaces/SurvivalCharacterInterface.h"
 #include "ARK/Inventory/PlayerHotBar.h"
@@ -93,7 +94,7 @@ private:
 	UDataTable* ItemsDataTable;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="DataTable", meta = (AllowPrivateAccess = "true"))
-	UDataTable* PlayerItemRecipe;
+	UDataTable* PlayerItemRecipeDataTable;
 	
 protected:
 	// 核心动作
@@ -143,6 +144,8 @@ public:
 	void OnSpawnEquipableThirdPerson(TSubclassOf<AActor> Class, FItemInfo ItemInfo, int32 LocalEquippedIndex);
 
 	void OnCheckIfCanCraftItem(int32 ID, const EContainerType& Container, const ECraftingType& TableType);
+
+	void OnCraftItem(int32 ItemID, EContainerType Container, ECraftingType TableType);
 	
 	UPROPERTY(Replicated, EditAnywhere,BlueprintReadWrite, Category="Input")
 	EEquipableState EquipableState = EEquipableState::Default;
@@ -184,11 +187,24 @@ public:
 private:
 	bool bIsHarvesting = false;
 
+	bool bIsCrafting = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation", meta = (AllowPrivateAccess = "true"))
 	UAnimMontage* PickUpMontage;
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastBush();
+
+	FTimerHandle DelayHandle;
+
+	UFUNCTION()
+	void OnDelayFinished(FName& ItemIDToAdd, EContainerType& Container);
+
+	void AddCraftedItem(const FName& ItemIDToAdd, const EContainerType& Container);
+
+	UDataTable* GetRecipeDataTable(const ECraftingType& TableType) const;
+	
+	UItemContainer* GetContainer(const EContainerType& ContainerType) const;
 
 	// 回调函数
 	UFUNCTION()
@@ -214,6 +230,8 @@ private:
 	void OverlapGroundItems();
 
 	bool CheckIfCanCraftItem(int32 ID, const EContainerType& Container, const ECraftingType& TableType);
+
+	std::tuple<FName, EContainerType, float> CraftItem(int32 ItemID, EContainerType Container, ECraftingType TableType);
 	
 	// 入口函数
 	void Hotbar(int32 Index);
@@ -258,12 +276,15 @@ private:
 
 	UFUNCTION(Server, Reliable)
 	void ServerCheckIfCanCraftItem(int32 ID, const EContainerType& Container, const ECraftingType& TableType);
-	
+
+	UFUNCTION(Server, Reliable)
+	void ServerCraftItem(int32 ItemID, EContainerType Container, ECraftingType TableType);
+
 public:
 	// 接口实现
-	virtual ASurvivalPlayerController* GetControllerFromChar_Implementation() override;
+	virtual AController* GetControllerFromChar_Implementation() override;
 
-	virtual ASurvivalCharacter* GetSurvivalCharRef_Implementation() override;
+	virtual APawn* GetSurvivalCharRef_Implementation() override;
 	
 	virtual void ThirdPersonMontage_Implementation(UAnimMontage* ThirdPersonMontage) override;
 

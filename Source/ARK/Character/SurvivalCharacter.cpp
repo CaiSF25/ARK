@@ -14,7 +14,6 @@
 #include "ARK/HUD/CraftingStructs.h"
 #include "ARK/Interfaces/GroundItemInterface.h"
 #include "ARK/Items/Equipables/FirstPersonEquipable.h"
-#include "Components/ArrowComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
@@ -300,39 +299,13 @@ void ASurvivalCharacter::OverlapGroundItems()
 
 bool ASurvivalCharacter::CheckIfCanCraftItem(int32 ID, const EContainerType& Container, const ECraftingType& TableType)
 {
-	UDataTable* DataTable = nullptr;
-	switch (TableType)
-	{
-	case ECraftingType::PlayerInventory:
-		if (PlayerItemRecipe)
-		{
-			DataTable = PlayerItemRecipe;
-		}
-		break;
-	case ECraftingType::CookingPot:
-		break;
-	case ECraftingType::CraftingBench:
-		break;
-	case ECraftingType::Forge:
-		break;
-	case ECraftingType::StorageBox:
-		break;
-	}
+	const UDataTable* DataTable = GetRecipeDataTable(TableType);
+	
 	const FName RowName = FName(*FString::FromInt(ID));
 	
 	static const FString ContextString(TEXT("CheckIfCanCraftItem"));
 
-	UItemContainer* ItemContainer = nullptr;
-	
-	switch (Container)
-	{
-	case EContainerType::PlayerInventory:
-		ItemContainer = PlayerInventory;
-		break;
-	case EContainerType::PlayerHotbar:
-		ItemContainer = PlayerHotBar;
-		break;
-	}
+	UItemContainer* ItemContainer = GetContainer(Container);
 
 	const auto Row = DataTable->FindRow<FItemRecipe>(
 		RowName,
@@ -346,6 +319,42 @@ bool ASurvivalCharacter::CheckIfCanCraftItem(int32 ID, const EContainerType& Con
 	}
 
 	return false;
+}
+
+std::tuple<FName, EContainerType, float> ASurvivalCharacter::CraftItem(int32 ItemID, EContainerType Container, ECraftingType TableType)
+{
+	const UDataTable* DataTable = GetRecipeDataTable(TableType);
+	
+	UItemContainer* ItemContainer = GetContainer(Container);
+		
+	const FName RowName = FName(*FString::FromInt(ItemID));
+	
+	static const FString ContextString(TEXT("CraftItem"));
+	const auto Row = DataTable->FindRow<FItemRecipe>(
+		RowName,
+		ContextString,
+		true
+		);
+	if (Row)
+	{
+		if (ItemContainer->ContainsItems(Row->RequiredItems))
+		{
+			ItemContainer->RemoveItems(Row->RequiredItems);
+			AController* PlayerController = GetController();
+			if (PlayerController && PlayerController->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
+			{
+				ASurvivalPlayerController* SurvivalController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(PlayerController));
+				SurvivalController->ShowCraftingProgressBar(Row->CraftTime);
+			}
+			return { RowName, Container, Row->CraftTime };
+		}
+		else
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "CraftItem");
+			return { FName(), Container, 0 };
+		}
+	}
+	return { FName(), Container, 0 };
 }
 
 void ASurvivalCharacter::SpawnEquipableFirstPerson_Implementation(TSubclassOf<AActor> Class, FName SocketName)
@@ -476,11 +485,53 @@ void ASurvivalCharacter::OnCheckIfCanCraftItem(int32 ID, const EContainerType& C
 {
 	if (HasAuthority())
 	{
-		CheckIfCanCraftItem(ID, Container, TableType);
+		ASurvivalPlayerController* PlayerController = nullptr;
+		if (GetController() && GetController()->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
+		{
+			PlayerController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(GetController()));
+		}
+		const bool CanCraft = CheckIfCanCraftItem(ID, Container, TableType);
+		PlayerController->UpdateCraftStatus(CanCraft);
 	}
 	else
 	{
 		ServerCheckIfCanCraftItem(ID, Container, TableType);
+	}
+}
+
+void ASurvivalCharacter::OnCraftItem(int32 ItemID, EContainerType Container, ECraftingType TableType)
+{
+	if (HasAuthority())
+	{
+		if (bIsCrafting) return;
+		bIsCrafting = true;
+		const std::tuple<FName, EContainerType, float> Result = CraftItem(ItemID, Container, TableType);
+		const FName ItemIDToAdd = std::get<0>(Result);
+		const EContainerType ItemContainer = std::get<1>(Result);
+		const float CraftTime = std::get<2>(Result);
+		if (ItemIDToAdd != FName())
+		{
+			if (const UWorld* World = GetWorld())
+			{
+				FTimerDelegate TimerDel;
+				TimerDel.BindLambda([this, ItemIDToAdd, ItemContainer]()
+				{
+					AddCraftedItem(ItemIDToAdd, ItemContainer);
+					bIsCrafting = false;
+				});
+				World->GetTimerManager().SetTimer(
+					DelayHandle,
+					TimerDel,                                  
+					CraftTime,
+					false
+					);
+			}
+		}
+		else bIsCrafting = false;
+	}
+	else
+	{
+		ServerCraftItem(ItemID, Container, TableType);
 	}
 }
 
@@ -683,6 +734,70 @@ void ASurvivalCharacter::MulticastBush_Implementation()
 	}
 }
 
+void ASurvivalCharacter::OnDelayFinished(FName& ItemIDToAdd, EContainerType& Container)
+{
+	AddCraftedItem(ItemIDToAdd, Container);
+}
+
+void ASurvivalCharacter::AddCraftedItem(const FName& ItemIDToAdd, const EContainerType& Container)
+{
+	static const FString ContextString(TEXT("AddCraftedItem"));
+	auto Row = ItemsDataTable->FindRow<FItemInfo>(
+		ItemIDToAdd,
+		ContextString,
+		true
+		);
+	auto OutRow = Row;
+	OutRow->ItemQuantity = 1;
+
+	UItemContainer* ItemContainer = GetContainer(Container);
+
+	ItemContainer->ServerAddItem(*Row);
+}
+
+UDataTable* ASurvivalCharacter::GetRecipeDataTable(const ECraftingType& TableType) const
+{
+	UDataTable* RecipeDataTable = nullptr;
+	switch (TableType)
+	{
+	case ECraftingType::PlayerInventory:
+		if (PlayerItemRecipeDataTable)
+		{
+			RecipeDataTable = PlayerItemRecipeDataTable;
+		}
+		break;
+	case ECraftingType::CookingPot:
+		break;
+	case ECraftingType::CraftingBench:
+		break;
+	case ECraftingType::Forge:
+		break;
+	case ECraftingType::StorageBox:
+		break;
+	}
+	return RecipeDataTable;
+}
+
+UItemContainer* ASurvivalCharacter::GetContainer(const EContainerType& ContainerType) const
+{
+	UItemContainer* Container = nullptr;
+	
+	switch (ContainerType)
+	{
+	case EContainerType::PlayerInventory:
+		Container = PlayerInventory;
+		break;
+	case EContainerType::PlayerHotbar:
+		Container = PlayerHotBar;
+		break;
+	case EContainerType::PlayerArmor:
+		break;
+	case EContainerType::PlayerStorage:
+		break;
+	}
+	return Container;
+}
+
 void ASurvivalCharacter::OnMontageCompleted(UAnimMontage* Montage, bool bInterrupted)
 {
 	bIsHarvesting = false;
@@ -715,8 +830,6 @@ void ASurvivalCharacter::HandleSlotDrop(EContainerType FromContainer, EContainer
 			break;
 		}
 		break;
-		
-
 	}
 }
 
@@ -767,17 +880,51 @@ void ASurvivalCharacter::ServerHarvestMontage_Implementation()
 void ASurvivalCharacter::ServerCheckIfCanCraftItem_Implementation(int32 ID, const EContainerType& Container,
 	const ECraftingType& TableType)
 {
-	CheckIfCanCraftItem(ID, Container, TableType);
+	ASurvivalPlayerController* PlayerController = nullptr;
+	if (GetController() && GetController()->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
+	{
+		PlayerController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(GetController()));
+	}
+	const bool CanCraft = CheckIfCanCraftItem(ID, Container, TableType);
+	PlayerController->UpdateCraftStatus(CanCraft);
+}
+
+void ASurvivalCharacter::ServerCraftItem_Implementation(int32 ItemID, EContainerType Container, ECraftingType TableType)
+{
+	if (bIsCrafting) return;
+	bIsCrafting = true;
+	const std::tuple<FName, EContainerType, float> Result = CraftItem(ItemID, Container, TableType);
+	const FName ItemIDToAdd = std::get<0>(Result);
+	const EContainerType ItemContainer = std::get<1>(Result);
+	const float CraftTime = std::get<2>(Result);
+	if (ItemIDToAdd != FName())
+	{
+		if (const UWorld* World = GetWorld())
+		{
+			FTimerDelegate TimerDel;
+			TimerDel.BindLambda([this, ItemIDToAdd, ItemContainer]()
+			{
+				AddCraftedItem(ItemIDToAdd, ItemContainer);
+				bIsCrafting = false;
+			});
+			World->GetTimerManager().SetTimer(
+				DelayHandle,
+				TimerDel,                                  
+				CraftTime,
+				false
+				);
+		}
+	}
+	else bIsCrafting = false;
 }
 
 // 接口实现
-ASurvivalPlayerController* ASurvivalCharacter::GetControllerFromChar_Implementation()
+AController* ASurvivalCharacter::GetControllerFromChar_Implementation()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Survival Character");
-	return Cast<ASurvivalPlayerController>(GetController());
+	return GetController();
 }
 
-ASurvivalCharacter* ASurvivalCharacter::GetSurvivalCharRef_Implementation()
+APawn* ASurvivalCharacter::GetSurvivalCharRef_Implementation()
 {
 	return this;
 }

@@ -23,10 +23,10 @@ class ARK_API ISurvivalCharacterInterface
 
 public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MyInterface")
-	ASurvivalPlayerController* GetControllerFromChar();
+	AController* GetControllerFromChar();
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MyInterface")
-	class ASurvivalCharacter* GetSurvivalCharRef();
+	APawn* GetSurvivalCharRef();
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MyInterface")
 	void ThirdPersonMontage(UAnimMontage* ThirdPersonMontage);

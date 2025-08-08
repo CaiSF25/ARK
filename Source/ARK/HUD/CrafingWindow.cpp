@@ -13,6 +13,7 @@
 #include "CraftingIngredient.h"
 #include "ARK/Character/SurvivalCharacter.h"
 #include "ARK/Interfaces/SurvivalCharacterInterface.h"
+#include "Components/Border.h"
 #include "Components/WidgetSwitcher.h"
 #include "GameFramework/Character.h"
 #include "Kismet/GameplayStatics.h"
@@ -39,6 +40,11 @@ void UCrafingWindow::NativeConstruct()
 	if (StructuresButton)
 	{
 		StructuresButton->OnClicked.AddDynamic(this, &ThisClass::OnStructuresButtonClicked);
+	}
+
+	if (CraftItemButton)
+	{
+		CraftItemButton->OnClicked.AddDynamic(this, &ThisClass::OnCraftItemButtonClicked);
 	}
 }
 
@@ -92,14 +98,39 @@ void UCrafingWindow::ShowItemRequirements(int32 ItemID)
 		ACharacter* PlayerCharacter = UGameplayStatics::GetPlayerCharacter(World, 0);
 		if (PlayerCharacter && PlayerCharacter->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
 		{
-			ASurvivalCharacter* Character = ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(PlayerCharacter);
+			ASurvivalCharacter* Character = Cast<ASurvivalCharacter>(ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(PlayerCharacter));
 			Character->OnCheckIfCanCraftItem(ItemSelectedID, EContainerType::PlayerInventory, ECraftingType::PlayerInventory);
-			
 		}
 	}
 	else
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Row not found");
+	}
+}
+
+void UCrafingWindow::UpdateCraftingStatus(const bool CanCraft) const
+{
+	if (CanCraft)
+	{
+		CanCraftBorder->SetBrushColor(FColor::Green);
+		CraftItemButton->SetIsEnabled(true);
+	}
+	else
+	{
+		CanCraftBorder->SetBrushColor(FColor::Red);
+		CraftItemButton->SetIsEnabled(false);
+	}
+}
+
+void UCrafingWindow::OnCraftItemButtonClicked()
+{
+	const UWorld* World = GetWorld();
+	if (!World) return;
+	ACharacter* Character = UGameplayStatics::GetPlayerCharacter(World, 0);
+	if (Character && Character->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
+	{
+		ASurvivalCharacter* SurvivalCharacter = Cast<ASurvivalCharacter>(ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(Character));
+		SurvivalCharacter->OnCraftItem(ItemSelectedID, EContainerType::PlayerInventory, ECraftingType::PlayerInventory);
 	}
 }
 

@@ -55,6 +55,11 @@ void ASurvivalPlayerController::ResetItemSlot_Implementation(const EContainerTyp
 	}
 }
 
+void ASurvivalPlayerController::UpdateCraftStatus_Implementation(bool CanCraft)
+{
+	MainWidget->GetInventoryWidget()->GetCraftingWindow()->UpdateCraftingStatus(CanCraft);
+}
+
 void ASurvivalPlayerController::HandleToggleInventory()
 {
 	if (IsLocalController())
@@ -82,9 +87,14 @@ UInventorySlot* ASurvivalPlayerController::GetInventoryWidget(EContainerType Con
 	return Slots[SlotIndex];
 }
 
-APlayerController* ASurvivalPlayerController::SurvivalGamePCRef_Implementation()
+AController* ASurvivalPlayerController::SurvivalGamePCRef_Implementation()
 {
 	return this;
+}
+
+void ASurvivalPlayerController::ShowCraftingProgressBar_Implementation(const float InTime)
+{
+	MainWidget->ShowCraftingBar(InTime);
 }
 
 void ASurvivalPlayerController::ShowItemWidget_Implementation(UTexture2D* ResourceImage, int32 ResourceQuantity,

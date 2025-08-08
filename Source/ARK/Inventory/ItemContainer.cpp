@@ -70,122 +70,6 @@ bool UItemContainer::AddItem(const FItemInfo& Item)
 		UpdateUI(SlotIndex, NewItem, false);
 	}
 	return true;
-	
-	/*for (int32 Index = 0; Index < Items.Num() && Remaining.ItemQuantity > 0; Index++)
-	{
-		if (Items[Index].ItemID == LocalItem.ItemID && Items[Index].ItemQuantity < Items[Index].StackSize)
-		{
-			const int32 SpaceAvailable = Items[Index].StackSize - Items[Index].ItemQuantity;
-			const int32 AmountToAdd = FMath::Min(SpaceAvailable, Remaining.ItemQuantity);
-			const int32 MaxStackSize = Items[Index].StackSize;
-			const int32 TempSlotQuantity = Items[Index].ItemQuantity;
-			int32 TotalItemQuantity = Item.ItemQuantity;
-			const int32 CurSlotQuantity = TempSlotQuantity + TotalItemQuantity >= MaxStackSize ? MaxStackSize : TempSlotQuantity + TotalItemQuantity;
-			LocalItem.ItemQuantity = CurSlotQuantity;
-			Items[Index] = LocalItem;
-			UpdateUI(Index, LocalItem, false);
-			TotalItemQuantity = TempSlotQuantity + TotalItemQuantity >= MaxStackSize ? FMath::Clamp(TempSlotQuantity - (MaxStackSize - TempSlotQuantity), 0, TotalItemQuantity) : 0;
-			LocalItem.ItemQuantity = TotalItemQuantity;
-		}
-	}
-	
-	if (Item.IsStackable)
-	{
-		if (HasItemsToStack(Item))
-		{
-			for (int Index = 0; Index < Items.Num(); Index++)
-			{
-				if (Items[Index].ItemID == LocalItem.ItemID && Items[Index].ItemQuantity < Items[Index].StackSize)
-				{
-					const int32 MaxStackSize = Items[Index].StackSize;
-					const int32 TempSlotQuantity = Items[Index].ItemQuantity;
-					int32 TotalItemQuantity = Item.ItemQuantity;
-					const int32 CurSlotQuantity = TempSlotQuantity + TotalItemQuantity >= MaxStackSize ? MaxStackSize : TempSlotQuantity + TotalItemQuantity;
-					LocalItem.ItemQuantity = CurSlotQuantity;
-					Items[Index] = LocalItem;
-					UpdateUI(Index, LocalItem, false);
-					TotalItemQuantity = TempSlotQuantity + TotalItemQuantity >= MaxStackSize ? FMath::Clamp(TempSlotQuantity - (MaxStackSize - TempSlotQuantity), 0, TotalItemQuantity) : 0;
-					LocalItem.ItemQuantity = TotalItemQuantity;
-				}
-			}
-			if (LocalItem.ItemQuantity > 0)
-			{
-				if (Item.ItemQuantity > Item.StackSize)
-				{
-					int32 TotalItemQuantity = Item.ItemQuantity;
-					const int32 MaxStackSize = Item.StackSize;
-					while (TotalItemQuantity > 0)
-					{
-						if (const int32 EmptySlot = FindEmptySlot())
-						{
-							constexpr int32 TempSlotQuantity = 0;
-							const int32 CurSlotQuantity = TempSlotQuantity + TotalItemQuantity >= MaxStackSize ? MaxStackSize : TempSlotQuantity + TotalItemQuantity;
-							LocalItem.ItemQuantity = CurSlotQuantity;
-							Items[EmptySlot] = LocalItem;
-							UpdateUI(EmptySlot, LocalItem, false);
-							TotalItemQuantity = TempSlotQuantity + TotalItemQuantity >= MaxStackSize ? FMath::Clamp(TempSlotQuantity - (MaxStackSize - TempSlotQuantity), 0, TotalItemQuantity) : 0;
-						}
-						else
-						{
-							return true;
-						}
-					}
-					return true;
-				}
-				else
-				{
-					const int32 Index = FindEmptySlot();
-					if (Index == -1) return false;
-					Items[Index] = Item;
-					UpdateUI(Index, Item, false);
-					return true;
-				}
-			}
-			else return true;
-		}
-		else
-		{
-			if (Item.ItemQuantity > Item.StackSize)
-			{
-				int32 TotalItemQuantity = Item.ItemQuantity;
-				const int32 MaxStackSize = Item.StackSize;
-				while (TotalItemQuantity > 0)
-				{
-					if (const int32 EmptySlot = FindEmptySlot())
-					{
-						constexpr int32 TempSlotQuantity = 0;
-						const int32 CurSlotQuantity = TempSlotQuantity + TotalItemQuantity >= MaxStackSize ? MaxStackSize : TempSlotQuantity + TotalItemQuantity;
-						LocalItem.ItemQuantity = CurSlotQuantity;
-						Items[EmptySlot] = LocalItem;
-						UpdateUI(EmptySlot, LocalItem, false);
-						TotalItemQuantity = TempSlotQuantity + TotalItemQuantity >= MaxStackSize ? FMath::Clamp(TempSlotQuantity - (MaxStackSize - TempSlotQuantity), 0, TotalItemQuantity) : 0;
-					}
-					else
-					{
-						return true;
-					}
-				}
-				return true;
-			}
-			else
-			{
-				const int32 Index = FindEmptySlot();
-				if (Index == -1) return false;
-				Items[Index] = Item;
-				UpdateUI(Index, Item, false);
-				return true;
-			}
-		}
-		return true;
-	}
-	else
-	{
-		const int32 Index = FindEmptySlot();
-		if (Index == -1) return false;
-		Items[Index] = Item;
-		UpdateUI(Index, Item, false);
-		return true;
-	}*/
 }
 
 void UItemContainer::ServerAddItem_Implementation(const FItemInfo& Item)
@@ -241,30 +125,28 @@ int32 UItemContainer::FindEmptySlot() const
 	return -1;
 }
 
-void UItemContainer::UpdateUI(int32 Index, const FItemInfo& Item, bool ResetSlot)
+void UItemContainer::UpdateUI(int32 Index, const FItemInfo& Item, bool ResetSlot) const
 {
 	ASurvivalCharacter* Character = Cast<ASurvivalCharacter>(GetOwner());
-	switch (ContainerType)
+	if (!Character || !Character->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
 	{
-	case EContainerType::PlayerInventory:
-		
-		if (Character && Character->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
-		{
-			if (ASurvivalPlayerController* PlayerController = ISurvivalCharacterInterface::Execute_GetControllerFromChar(Character))
-			{
-				PlayerController->UpdateItemSlot(ContainerType, Index, Item);
-			}
-		}
-		break;
-	case EContainerType::PlayerHotbar:
-		if (Character && Character->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
-		{
-			if (ASurvivalPlayerController* PlayerController = ISurvivalCharacterInterface::Execute_GetControllerFromChar(Character))
-			{
-				PlayerController->UpdateItemSlot(ContainerType, Index, Item);
-			}
-		}
-		break;
+		return;
+	}
+
+	ASurvivalPlayerController* PlayerController =
+		Cast<ASurvivalPlayerController>(ISurvivalCharacterInterface::Execute_GetControllerFromChar(Character));
+	if (!PlayerController)
+	{
+		return;
+	}
+	
+	if (ResetSlot)
+	{
+		PlayerController->ResetItemSlot(ContainerType, Index);
+	}
+	else
+	{
+		PlayerController->UpdateItemSlot(ContainerType, Index, Item);
 	}
 }
 
@@ -304,29 +186,75 @@ bool UItemContainer::ContainsItems(TArray<FItemStructure>& RequiredItems)
 		*FoundQty -= Req.ItemQuantity;
 	}
 	return true;
-	
-	TArray<FItemStructure> HasItems = RequiredItems;
-	for (int32 Index = 0; Index < RequiredItems.Num(); Index++)
+}
+
+void UItemContainer::RemoveItems(TArray<FItemStructure>& ItemsToRemove)
+{
+	for (const FItemStructure& Req : ItemsToRemove)
 	{
-		for (int32 ItemIndex = 0; ItemIndex < Items.Num(); ItemIndex++)
+		int32 RemainingToRemove = Req.ItemQuantity;
+		TArray<int32> SlotIndexes = GetIndexesOfItem(Req.ItemID);
+		
+		for (const int32 SlotIdx : SlotIndexes)
 		{
-			if (RequiredItems[Index].ItemID == Items[ItemIndex].ItemID && RequiredItems[Index].ItemQuantity <= Items[ItemIndex].ItemQuantity)
+			int32 SlotQty = Items[SlotIdx].ItemQuantity;
+
+			if (SlotQty <= RemainingToRemove)
 			{
-				for (int32 i = 0; i < HasItems.Num(); i++)
-				{
-					if (HasItems[i].ItemID ==  RequiredItems[Index].ItemID)
-					{
-						HasItems.RemoveAt(i);
-					}
-				}
+				RemainingToRemove -= SlotQty;
+				Items[SlotIdx] = FItemInfo();
+
+				UpdateUI(SlotIdx, FItemInfo(), true);
 			}
+			else
+			{
+				Items[SlotIdx].ItemQuantity = SlotQty - RemainingToRemove;
+				UpdateUI(SlotIdx, Items[SlotIdx], false);
+				RemainingToRemove = 0;
+			}
+
+			if (RemainingToRemove == 0) break;
 		}
 	}
-	if (HasItems.IsEmpty())
+	/*TArray<FItemStructure> LocalItemsToRemove = ItemsToRemove;
+	TArray<FItemStructure> ListItemToRemove = ItemsToRemove;
+	for (int32 Index = 0; Index < LocalItemsToRemove.Num(); Index++)
 	{
-		return true;
+		int32 LocalQuantityToRemove = LocalItemsToRemove[Index].ItemQuantity;
+		TArray<int32> LocalItemIndexes = GetIndexesOfItem(LocalItemsToRemove[Index].ItemID);
+		for (int32 ItemIndex = 0; ItemIndex < LocalItemIndexes.Num(); ItemIndex++)
+		{
+			int32 LocalSlotIndex = LocalItemIndexes[ItemIndex];
+			if (Items[LocalSlotIndex].ItemQuantity -LocalQuantityToRemove <= 0)
+			{
+				LocalQuantityToRemove =  LocalQuantityToRemove - (Items[LocalSlotIndex].ItemQuantity - LocalQuantityToRemove);
+				Items[LocalSlotIndex] = FItemInfo();
+				UpdateUI(LocalSlotIndex, FItemInfo(), true);
+				if (LocalQuantityToRemove == 0)
+				{
+					
+				}
+			}
+			else
+			{
+				Items[LocalSlotIndex].ItemQuantity -= LocalQuantityToRemove;
+				UpdateUI(LocalSlotIndex, Items[LocalSlotIndex], false);
+			}
+		}
+	}*/
+}
+
+TArray<int32> UItemContainer::GetIndexesOfItem(const int32 ItemID) const
+{
+	TArray<int32> IndexesFound;
+	for (int32 Index = 0; Index < Items.Num(); Index++)
+	{
+		if (Items[Index].ItemID == ItemID && Items[Index].ItemQuantity > 0)
+		{
+			IndexesFound.Add(Index);
+		}
 	}
-	return false;
+	return IndexesFound;
 }
 
 void UItemContainer::HandleSlotDrop(UItemContainer* FromContainer, int32 FromIndex, int32 DroppedIndex)

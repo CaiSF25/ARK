@@ -64,4 +64,7 @@ struct FItemRecipe : public FTableRowBase
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 ItemExperience = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float CraftTime = 0.f;
 };

@@ -5,6 +5,7 @@
 
 #include "InventoryWidget.h"
 #include "ItemAdded.h"
+#include "CraftingProgressBar.h"
 #include "ARK/Character/SurvivalPlayerController.h"
 #include "Components/VerticalBox.h"
 
@@ -18,7 +19,7 @@ void UMainWidget::NativeConstruct()
 	}
 }
 
-void UMainWidget::SetInventoryVisibility(bool bVisible)
+void UMainWidget::SetInventoryVisibility(const bool bVisible) const
 {
 	if (bVisible)
 	{
@@ -37,6 +38,14 @@ void UMainWidget::ShowItemCollected(UTexture2D* ResourceImage, int32 ResourceQua
 	ItemAdded->ResourceQuantity = ResourceQuantity;
 	ItemAdded->ResourceName = ResourceName;
 	ResourceCollected->AddChild(ItemAdded);
+}
+
+void UMainWidget::ShowCraftingBar(const float InTime) const
+{
+	if (!CraftingProgressBarClass) return;
+	UCraftingProgressBar* CraftingProgressBar = CreateWidget<UCraftingProgressBar>(GetOwningPlayer(), CraftingProgressBarClass);
+	CraftingProgressBar->SetDurationTime(InTime);
+	CraftWindowBox->AddChild(CraftingProgressBar);
 }
 
 

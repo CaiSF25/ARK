@@ -8,6 +8,7 @@
 #include "InventoryWidget.h"
 #include "MainWidget.generated.h"
 
+class UCraftingProgressBar;
 class UVerticalBox;
 class UItemAdded;
 class USizeBox;
@@ -26,26 +27,35 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	UInventoryWidget* GetInventoryWidget() const { return InventoryWidget; }
 
-	UFUNCTION(BlueprintCallable, Category = "UI")
+	UFUNCTION()
 	UHotbar* GetHotbar() const { return Hotbar; }
 	
-	UFUNCTION(BlueprintCallable)
-	void SetInventoryVisibility(bool bVisible);
+	UFUNCTION()
+	void SetInventoryVisibility(const bool bVisible) const;
 
 	UFUNCTION(BlueprintCallable)
 	void ShowItemCollected(UTexture2D* ResourceImage, int32 ResourceQuantity, FText ResourceName);
 
+	UFUNCTION()
+	void ShowCraftingBar(const float InTime) const;
+	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
 	TSubclassOf<UItemAdded> ItemAddedClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	TSubclassOf<UCraftingProgressBar> CraftingProgressBarClass;
 	
 private:
-	UPROPERTY(EditAnywhere, Category = "UI",meta=(BindWidget))
+	UPROPERTY(meta=(BindWidget))
 	UInventoryWidget* InventoryWidget;
 
-	UPROPERTY(EditAnywhere, Category = "UI",meta=(BindWidget))
+	UPROPERTY(meta=(BindWidget))
 	UHotbar* Hotbar;
 
-	UPROPERTY(EditAnywhere, Category= "UI", meta=(BindWidget))
+	UPROPERTY(meta=(BindWidget))
 	UVerticalBox* ResourceCollected;
+
+	UPROPERTY(meta=(BindWidget))
+	UVerticalBox* CraftWindowBox;
 };
