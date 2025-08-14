@@ -6,6 +6,7 @@
 #include "InventoryWidget.h"
 #include "ItemAdded.h"
 #include "CraftingProgressBar.h"
+#include "StateNotifycationWidget.h"
 #include "ARK/Character/SurvivalPlayerController.h"
 #include "Components/VerticalBox.h"
 
@@ -46,6 +47,45 @@ void UMainWidget::ShowCraftingBar(const float InTime) const
 	UCraftingProgressBar* CraftingProgressBar = CreateWidget<UCraftingProgressBar>(GetOwningPlayer(), CraftingProgressBarClass);
 	CraftingProgressBar->SetDurationTime(InTime);
 	CraftWindowBox->AddChild(CraftingProgressBar);
+}
+
+void UMainWidget::ShowStarvingNotification()
+{
+	if (!IsValid(StarvingWidget))
+	{
+		if (!StateNotifycationWidgetClass) return;
+		StarvingWidget = CreateWidget<UStateNotifycationWidget>(GetWorld(), StateNotifycationWidgetClass);
+		StarvingWidget->bIsStarvingOrDehydrated = true;
+		NotificationBox->AddChild(StarvingWidget);
+	}
+	
+}
+
+void UMainWidget::ShowDehydratedNotification()
+{
+	if (!IsValid(DehydratedWidget))
+	{
+		if (!StateNotifycationWidgetClass) return;
+		DehydratedWidget = CreateWidget<UStateNotifycationWidget>(GetWorld(), StateNotifycationWidgetClass);
+		DehydratedWidget->bIsStarvingOrDehydrated = false;
+		NotificationBox->AddChild(DehydratedWidget);
+	}
+}
+
+void UMainWidget::RemoveStarvingNotification()
+{
+	if (IsValid(StarvingWidget))
+	{
+		StarvingWidget->RemoveFromParent();
+	}
+}
+
+void UMainWidget::RemoveDehydratedNotification()
+{
+	if (IsValid(DehydratedWidget))
+	{
+		DehydratedWidget->RemoveFromParent();
+	}
 }
 
 

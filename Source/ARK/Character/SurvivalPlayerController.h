@@ -10,6 +10,7 @@
 #include "GameFramework/PlayerController.h"
 #include "SurvivalPlayerController.generated.h"
 
+enum class EStatEnum : uint8;
 /**
  * 
  */
@@ -25,6 +26,12 @@ protected:
 	virtual void BeginPlay() override;
 	
 public:
+	UFUNCTION(Client, Reliable)
+	void ShowOrHideStarving(bool bShowOrHide);
+
+	UFUNCTION(Client, Reliable)
+	void ShowOrHideDehydrated(bool bShowOrHide);
+	
 	UFUNCTION(Client, Reliable)
 	void UpdateItemSlot(const EContainerType& Container, int32 Index, const FItemInfo& ItemInfo);
 	
@@ -49,6 +56,9 @@ public:
 
 	UFUNCTION()
 	UMainWidget* GetMainWidget() const { return MainWidget; }
+
+	UFUNCTION(Client, Reliable)
+	void UpdateStatBar(const EStatEnum& State, float Current, float Max);
 
 	// 接口实现
 	virtual AController* SurvivalGamePCRef_Implementation() override;

@@ -6,6 +6,7 @@
 #include "Blueprint/UserWidget.h"
 #include "Hotbar.generated.h"
 
+class UItemContainerGrid;
 /**
  * 
  */

@@ -4,6 +4,7 @@
 #include "SurvivalPlayerController.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "PlayerStats.h"
 #include "ARK/HUD/InventoryWidget.h"
 
 class UEnhancedInputLocalPlayerSubsystem;
@@ -43,6 +44,30 @@ void ASurvivalPlayerController::BeginPlay()
 				MainWidget->AddToViewport();
 			}
 		}
+	}
+}
+
+void ASurvivalPlayerController::ShowOrHideDehydrated_Implementation(bool bShowOrHide)
+{
+	if (bShowOrHide)
+	{
+		MainWidget->ShowDehydratedNotification();
+	}
+	else
+	{
+		MainWidget->RemoveDehydratedNotification();
+	}
+}
+
+void ASurvivalPlayerController::ShowOrHideStarving_Implementation(bool bShowOrHide)
+{
+	if (bShowOrHide)
+	{
+		MainWidget->ShowStarvingNotification();
+	}
+	else
+	{
+		MainWidget->RemoveStarvingNotification();
 	}
 }
 
@@ -86,6 +111,12 @@ UInventorySlot* ASurvivalPlayerController::GetInventoryWidget(EContainerType Con
 	}
 	return Slots[SlotIndex];
 }
+
+void ASurvivalPlayerController::UpdateStatBar_Implementation(const EStatEnum& State, float Current, float Max)
+{
+	MainWidget->GetPlayerStatsWindow()->UpdateBar(State, Current, Max);
+}
+
 
 AController* ASurvivalPlayerController::SurvivalGamePCRef_Implementation()
 {

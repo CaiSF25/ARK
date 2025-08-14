@@ -120,6 +120,7 @@ void ATP_Hatchet::Overlap(const FVector& SpherePos, const FRotator& Rotation)
 {
 	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
 	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel1));
+	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_Pawn));
 
 	const TSubclassOf<AActor> ClassFilter = nullptr;
 	
@@ -137,11 +138,19 @@ void ATP_Hatchet::Overlap(const FVector& SpherePos, const FRotator& Rotation)
 		OutActors
 		))
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, "We Hit a Tree");
 		for (int i = 0; i < OutActors.Num(); i++)
 		{
-			HarvestFoliage(15, OutActors[i]);
-			MulticastHitFX(SpherePos, Rotation);
+			if (OutActors[i]->GetClass()->ImplementsInterface(ULargeItemInterface::StaticClass()))
+			{
+				HarvestFoliage(15, OutActors[i]);
+				MulticastHitFX(SpherePos, Rotation);
+			}
+			else
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, "We Hit a Player");
+				UGameplayStatics::ApplyDamage(OutActors[i], 15.0, Character->GetController(), this, UDamageType::StaticClass());
+			}
+			
 		}
 	}
 	else

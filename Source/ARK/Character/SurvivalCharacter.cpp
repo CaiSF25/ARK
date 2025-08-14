@@ -14,6 +14,7 @@
 #include "ARK/HUD/CraftingStructs.h"
 #include "ARK/Interfaces/GroundItemInterface.h"
 #include "ARK/Items/Equipables/FirstPersonEquipable.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
@@ -82,12 +83,48 @@ void ASurvivalCharacter::BeginPlay()
 
 		Mesh3P->GetAnimInstance()->OnMontageEnded.AddDynamic(this, &ASurvivalCharacter::OnPickUpMontageEnded);
 	}
+
+	if (HasAuthority())
+	{
+		OnTakeAnyDamage.AddDynamic(this, &ASurvivalCharacter::HandleAnyDamage);
+	}
+
+	OnDecreaseStatsOverTime();
+}
+
+void ASurvivalCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	OnTakeAnyDamage.RemoveDynamic(this, &ASurvivalCharacter::HandleAnyDamage);
+
+	Super::EndPlay(EndPlayReason);
+}
+
+ASurvivalPlayerController* ASurvivalCharacter::GetSurvivalController() const
+{
+	AController* PC = GetController();
+	if (IsValid(PC) && PC->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
+	{
+		return Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(PC));
+	}
+	return nullptr;
+}
+
+void ASurvivalCharacter::HandleAnyDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType,
+                                         AController* InstigatedBy, AActor* DamageCauser)
+{
+	if (HasAuthority())
+	{
+		ApplyDamageToPlayer(Damage, DamageCauser);
+	}
 }
 
 void ASurvivalCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ASurvivalCharacter, EquipableState);
+	DOREPLIFETIME(ASurvivalCharacter, StaminaState);
+	DOREPLIFETIME(ASurvivalCharacter, bIsStarving);
+	DOREPLIFETIME(ASurvivalCharacter, bIsDehydrated);
 	// DOREPLIFETIME(ASurvivalCharacter, ThirdPersonEquippedItem);
 }
 
@@ -100,6 +137,14 @@ void ASurvivalCharacter::Move(const FInputActionValue& Value)
 	{
 		AddMovementInput(GetActorForwardVector(), MovementVector.Y);
 		AddMovementInput(GetActorRightVector(), MovementVector.X);
+	}
+	if (GetCharacterMovement()->Velocity.Length() > 100.f)
+	{
+		OnStartDrainStamina();
+	}
+	else
+	{
+		OnStopDrainStamina();
 	}
 }
 
@@ -340,12 +385,15 @@ std::tuple<FName, EContainerType, float> ASurvivalCharacter::CraftItem(int32 Ite
 		if (ItemContainer->ContainsItems(Row->RequiredItems))
 		{
 			ItemContainer->RemoveItems(Row->RequiredItems);
-			AController* PlayerController = GetController();
-			if (PlayerController && PlayerController->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
+			if (GetController() && GetController()->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
 			{
-				ASurvivalPlayerController* SurvivalController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(PlayerController));
-				SurvivalController->ShowCraftingProgressBar(Row->CraftTime);
+				ASurvivalPlayerController* SurvivalController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(GetController()));
+				if (SurvivalController)
+				{
+					SurvivalController->ShowCraftingProgressBar(Row->CraftTime);
+				}
 			}
+			
 			return { RowName, Container, Row->CraftTime };
 		}
 		else
@@ -356,6 +404,7 @@ std::tuple<FName, EContainerType, float> ASurvivalCharacter::CraftItem(int32 Ite
 	}
 	return { FName(), Container, 0 };
 }
+
 
 void ASurvivalCharacter::SpawnEquipableFirstPerson_Implementation(TSubclassOf<AActor> Class, FName SocketName)
 {
@@ -457,22 +506,27 @@ void ASurvivalCharacter::OnOverlapGroundItems()
 	}
 }
 
+void ASurvivalCharacter::HarvestMontage()
+{
+	if (UAnimInstance* AnimInstance = Mesh3P->GetAnimInstance())
+	{
+		AnimInstance->Montage_Play(PickUpMontage);
+
+		FOnMontageEnded MontageEndedDelegate;
+		MontageEndedDelegate.BindUObject(this, &ASurvivalCharacter::OnMontageCompleted);
+		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate);
+			
+		ClientMontage(PickUpMontage);
+		MontageMulticast(PickUpMontage);
+		MulticastBush();
+	}
+}
+
 void ASurvivalCharacter::OnHarvestMontage()
 {
 	if (HasAuthority())
 	{
-		if (UAnimInstance* AnimInstance = Mesh3P->GetAnimInstance())
-		{
-			AnimInstance->Montage_Play(PickUpMontage);
-
-			FOnMontageEnded MontageEndedDelegate;
-			MontageEndedDelegate.BindUObject(this, &ASurvivalCharacter::OnMontageCompleted);
-			AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate);
-				
-			ClientMontage(PickUpMontage);
-			MontageMulticast(PickUpMontage);
-			MulticastBush();
-		}
+		HarvestMontage();
 	}
 	else
 	{
@@ -480,18 +534,50 @@ void ASurvivalCharacter::OnHarvestMontage()
 	}
 }
 
-void ASurvivalCharacter::OnCheckIfCanCraftItem(int32 ID, const EContainerType& Container,
-	const ECraftingType& TableType)
+void ASurvivalCharacter::OnStartDrainStamina()
 {
 	if (HasAuthority())
 	{
-		ASurvivalPlayerController* PlayerController = nullptr;
+		if (StaminaState != EStaminaState::Draining && PlayerStats.CurrentStamina > 0.f)
+		{
+			StaminaState = EStaminaState::Draining;
+		}
+	}
+	else
+	{
+		ServerStartDrainStamina();
+	}
+}
+
+void ASurvivalCharacter::OnStopDrainStamina()
+{
+	if (HasAuthority())
+	{
+		if (StaminaState != EStaminaState::Regenerating)
+		{
+			StaminaState = EStaminaState::Regenerating;
+		}
+	}
+	else
+	{
+		ServerStopDrainStamina();
+	}
+}
+
+void ASurvivalCharacter::OnCheckIfCanCraftItem(int32 ID, const EContainerType& Container,
+                                               const ECraftingType& TableType)
+{
+	if (HasAuthority())
+	{
+		const bool CanCraft = CheckIfCanCraftItem(ID, Container, TableType);
 		if (GetController() && GetController()->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
 		{
-			PlayerController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(GetController()));
+			ASurvivalPlayerController* SurvivalController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(GetController()));
+			if (SurvivalController)
+			{
+				SurvivalController->UpdateCraftStatus(CanCraft);
+			}
 		}
-		const bool CanCraft = CheckIfCanCraftItem(ID, Container, TableType);
-		PlayerController->UpdateCraftStatus(CanCraft);
 	}
 	else
 	{
@@ -520,7 +606,7 @@ void ASurvivalCharacter::OnCraftItem(int32 ItemID, EContainerType Container, ECr
 					bIsCrafting = false;
 				});
 				World->GetTimerManager().SetTimer(
-					DelayHandle,
+					DelayHandle_CraftItem,
 					TimerDel,                                  
 					CraftTime,
 					false
@@ -599,6 +685,24 @@ void ASurvivalCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	const bool bIsMoving = GetCharacterMovement()->Velocity.Length() > 100.0f;
+
+	if (bIsMoving)
+	{
+		if (StaminaState != EStaminaState::Draining && PlayerStats.CurrentStamina > 0.f)
+		{
+			StaminaState = EStaminaState::Draining;
+		}
+	}
+	else
+	{
+		if (StaminaState != EStaminaState::Regenerating)
+		{
+			StaminaState = EStaminaState::Regenerating;
+		}
+	}
+
+	ProcessStamina(DeltaTime);
 }
 
 void ASurvivalCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -651,8 +755,15 @@ void ASurvivalCharacter::HarvestItem(FResourceStructure Resource)
 	{
 		Row->ItemQuantity = Resource.Quantity;
 		PlayerInventory->ServerAddItem(*Row);
-		ASurvivalPlayerController* PlayerController = Cast<ASurvivalPlayerController>(GetController());
-		PlayerController->ShowItemWidget(Row->ItemIcon, Row->ItemQuantity, Row->ItemName);
+
+		if (GetController() && GetController()->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
+		{
+			ASurvivalPlayerController* SurvivalController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(GetController()));
+			if (SurvivalController)
+			{
+				SurvivalController->ShowItemWidget(Row->ItemIcon, Row->ItemQuantity, Row->ItemName);
+			}
+		}
 	}
 }
 
@@ -798,6 +909,229 @@ UItemContainer* ASurvivalCharacter::GetContainer(const EContainerType& Container
 	return Container;
 }
 
+void ASurvivalCharacter::ApplyDamageToPlayer(float Damage, AActor* DamageCauser)
+{
+	if (!bIsDead)
+	{
+		const float LocalCurHealth = PlayerStats.CurrentHealth - Damage;
+		PlayerStats.CurrentHealth = LocalCurHealth;
+		if (GetController() && GetController()->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
+		{
+			ASurvivalPlayerController* SurvivalController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(GetController()));
+			if (SurvivalController)
+			{
+				if (LocalCurHealth <= 0)
+				{
+					GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("Player is Dead")));
+					bIsDead = true;
+					SurvivalController->UpdateStatBar(EStatEnum::Health, 0, PlayerStats.MaxHealth);
+				}
+				else
+				{
+					SurvivalController->UpdateStatBar(EStatEnum::Health, LocalCurHealth, PlayerStats.MaxHealth);
+				}
+			}
+		}
+	}
+	
+}
+
+void ASurvivalCharacter::OnRep_Starving() const
+{
+	if (ASurvivalPlayerController* SurvivalController = GetSurvivalController())
+	{
+		SurvivalController->ShowOrHideStarving(bIsStarving);
+	}
+}
+
+void ASurvivalCharacter::OnRep_Dehydrated() const
+{
+	if (ASurvivalPlayerController* SurvivalController = GetSurvivalController())
+	{
+		SurvivalController->ShowOrHideDehydrated(bIsDehydrated);
+	}
+}
+
+float ASurvivalCharacter::DecreaseFloat(const float FloatToDecrease, const float Percentage, const float Max)
+{
+	return FMath::Clamp(FloatToDecrease - Percentage * Max, 0.f, Max);
+}
+
+void ASurvivalCharacter::FoodWaterDrain()
+{
+	const float FoodFloat = DecreaseFloat(PlayerStats.CurrentFood, 0.02f, PlayerStats.MaxFood);
+	const float WaterFloat = DecreaseFloat(PlayerStats.CurrentWater, 0.04f, PlayerStats.MaxWater);
+    
+	ASurvivalPlayerController* SurvivalController = GetSurvivalController();
+	bool bWasStarving = bIsStarving;
+	bool bWasDehydrated = bIsDehydrated;
+
+	// 饥饿状态处理
+	bIsStarving = FoodFloat <= 0;
+	if (bIsStarving != bWasStarving)
+	{
+		if (bIsStarving)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Player is Starving"));
+		}
+        
+		if (SurvivalController)
+		{
+			SurvivalController->ShowOrHideStarving(bIsStarving);
+		}
+	}
+
+	// 脱水状态处理
+	bIsDehydrated = WaterFloat <= 0;
+	if (bIsDehydrated != bWasDehydrated)
+	{
+		if (bIsDehydrated)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Player is Dehydrated"));
+		}
+        
+		if (SurvivalController)
+		{
+			SurvivalController->ShowOrHideDehydrated(bIsDehydrated);
+		}
+	}
+
+	// 更新玩家状态
+	PlayerStats.CurrentFood = FoodFloat;
+	PlayerStats.CurrentWater = WaterFloat;
+
+	// 健康检查
+	if (bIsStarving || bIsDehydrated)
+	{
+		if (!GetWorld()->GetTimerManager().IsTimerActive(DecreaseHealthHandle))
+		{
+			OnDecreaseHealthOverTime();
+		}
+	}
+	else if (GetWorld()->GetTimerManager().IsTimerActive(DecreaseHealthHandle))
+	{
+		GetWorld()->GetTimerManager().ClearTimer(DecreaseHealthHandle);
+	}
+
+	// 更新UI
+	if (SurvivalController)
+	{
+		SurvivalController->UpdateStatBar(EStatEnum::Food, PlayerStats.CurrentFood, PlayerStats.MaxFood);
+		SurvivalController->UpdateStatBar(EStatEnum::Water, PlayerStats.CurrentWater, PlayerStats.MaxWater);
+	}
+}
+
+void ASurvivalCharacter::PassiveStatDrain()
+{
+	if (bIsDead)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(DecreaseStatsHandle);
+		GetWorld()->GetTimerManager().ClearTimer(DecreaseHealthHandle);
+	}
+	else
+	{
+		FoodWaterDrain();
+	}
+}
+
+void ASurvivalCharacter::DecreaseStatsOverTime()
+{
+	GetWorld()->GetTimerManager().ClearTimer(DecreaseStatsHandle);
+	GetWorld()->GetTimerManager().SetTimer(
+		DecreaseStatsHandle,                     // 定时器句柄
+		this,                                  // 拥有定时器的对象
+		&ASurvivalCharacter::PassiveStatDrain, // 要调用的函数
+		60.f,                                  // 调用间隔（秒）
+		true);
+}
+
+void ASurvivalCharacter::ServerDecreaseStatsOverTime_Implementation()
+{
+	DecreaseStatsOverTime();
+}
+
+void ASurvivalCharacter::OnDecreaseStatsOverTime()
+{
+	if (HasAuthority())
+	{
+		DecreaseStatsOverTime();
+	}
+	else
+	{
+		ServerDecreaseStatsOverTime();
+	}
+}
+
+void ASurvivalCharacter::CheckStartHealthDrain()
+{
+	if ((bIsStarving || bIsDehydrated) && !GetWorld()->GetTimerManager().IsTimerActive(DecreaseHealthHandle))
+	{
+		OnDecreaseHealthOverTime();
+	}
+}
+
+void ASurvivalCharacter::CheckStopHealthDrain()
+{
+	if (!bIsStarving && !bIsDehydrated && GetWorld()->GetTimerManager().IsTimerActive(DecreaseHealthHandle))
+	{
+		GetWorld()->GetTimerManager().ClearTimer(DecreaseHealthHandle);
+	}
+}
+
+void ASurvivalCharacter::DecreaseHealth()
+{
+	if (bIsDead)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(DecreaseHealthHandle);
+	}
+	else
+	{
+		if (bIsStarving && bIsDehydrated)
+		{
+			RemoveHealth(4);
+		}
+		else
+		{
+			RemoveHealth(2);
+		}
+	}
+}
+
+void ASurvivalCharacter::RemoveHealth(float Amount)
+{
+	UGameplayStatics::ApplyDamage(this, Amount, GetController(), this, UDamageType::StaticClass());
+}
+
+void ASurvivalCharacter::DecreaseHealthOverTime()
+{
+	GetWorld()->GetTimerManager().ClearTimer(DecreaseHealthHandle);
+	GetWorld()->GetTimerManager().SetTimer(
+		DecreaseHealthHandle,               // 定时器句柄
+		this,                                  // 拥有定时器的对象
+		&ASurvivalCharacter::DecreaseHealth,   // 要调用的函数
+		15.f,                                  // 调用间隔（秒）
+		true,
+		1);
+}
+
+void ASurvivalCharacter::OnDecreaseHealthOverTime()
+{
+	if(!(bIsStarving || bIsDehydrated) || bIsDead) return;
+	if (HasAuthority())
+	{
+		DecreaseHealthOverTime();
+	}
+	else
+	{
+		ServerDecreaseHealthOverTime();
+	}
+}
+
+void ASurvivalCharacter::ServerDecreaseHealthOverTime_Implementation()
+{
+	DecreaseHealthOverTime();
+}
+
 void ASurvivalCharacter::OnMontageCompleted(UAnimMontage* Montage, bool bInterrupted)
 {
 	bIsHarvesting = false;
@@ -863,30 +1197,21 @@ void ASurvivalCharacter::ServerOverlapGroundItems_Implementation()
 
 void ASurvivalCharacter::ServerHarvestMontage_Implementation()
 {
-	if (UAnimInstance* AnimInstance = Mesh3P->GetAnimInstance())
-	{
-		AnimInstance->Montage_Play(PickUpMontage);
-
-		FOnMontageEnded MontageEndedDelegate;
-		MontageEndedDelegate.BindUObject(this, &ASurvivalCharacter::OnMontageCompleted);
-		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate);
-			
-		ClientMontage(PickUpMontage);
-		MontageMulticast(PickUpMontage);
-		MulticastBush();
-	}
+	HarvestMontage();
 }
 
 void ASurvivalCharacter::ServerCheckIfCanCraftItem_Implementation(int32 ID, const EContainerType& Container,
 	const ECraftingType& TableType)
 {
-	ASurvivalPlayerController* PlayerController = nullptr;
+	const bool CanCraft = CheckIfCanCraftItem(ID, Container, TableType);
 	if (GetController() && GetController()->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
 	{
-		PlayerController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(GetController()));
+		ASurvivalPlayerController* SurvivalController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(GetController()));
+		if (SurvivalController)
+		{
+			SurvivalController->UpdateCraftStatus(CanCraft);
+		}
 	}
-	const bool CanCraft = CheckIfCanCraftItem(ID, Container, TableType);
-	PlayerController->UpdateCraftStatus(CanCraft);
 }
 
 void ASurvivalCharacter::ServerCraftItem_Implementation(int32 ItemID, EContainerType Container, ECraftingType TableType)
@@ -908,7 +1233,7 @@ void ASurvivalCharacter::ServerCraftItem_Implementation(int32 ItemID, EContainer
 				bIsCrafting = false;
 			});
 			World->GetTimerManager().SetTimer(
-				DelayHandle,
+				DelayHandle_CraftItem,
 				TimerDel,                                  
 				CraftTime,
 				false
@@ -916,6 +1241,113 @@ void ASurvivalCharacter::ServerCraftItem_Implementation(int32 ItemID, EContainer
 		}
 	}
 	else bIsCrafting = false;
+}
+
+void ASurvivalCharacter::ServerStartDrainStamina_Implementation()
+{
+	if (StaminaState != EStaminaState::Draining && PlayerStats.CurrentStamina > 0.f)
+	{
+		StaminaState = EStaminaState::Draining;
+	}
+}
+
+void ASurvivalCharacter::ServerStopDrainStamina_Implementation()
+{
+	if (StaminaState != EStaminaState::Regenerating)
+	{
+		StaminaState = EStaminaState::Regenerating;
+	}
+}
+
+void ASurvivalCharacter::UpdateStaminaUI(float NewStamina)
+{
+	if (GetController() && GetController()->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
+	{
+		ASurvivalPlayerController* SurvivalController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(GetController()));
+		if (SurvivalController)
+		{
+			SurvivalController->UpdateStatBar(EStatEnum::Stamina, PlayerStats.CurrentStamina, NewStamina);
+		}
+	}
+}
+
+void ASurvivalCharacter::ProcessStamina(float DeltaTime)
+{
+	switch (StaminaState)
+	{
+	case EStaminaState::Draining:
+		{
+			// 只有在实际移动时才消耗耐力
+			if (GetCharacterMovement()->Velocity.Length() > 100.f)
+			{
+				const float NewStamina = FMath::Clamp(
+					PlayerStats.CurrentStamina - StaminaDrainRate * DeltaTime, 
+					0.f, 
+					PlayerStats.MaxStamina
+				);
+                
+				if (NewStamina != PlayerStats.CurrentStamina)
+				{
+					PlayerStats.CurrentStamina = NewStamina;
+					UpdateStaminaUI(NewStamina);
+				}
+                
+				if (PlayerStats.CurrentStamina <= 0.f)
+				{
+					StaminaState = EStaminaState::Idle;
+				}
+			}
+			else
+			{
+				// 如果没有实际移动，切换到恢复状态
+				StaminaState = EStaminaState::Regenerating;
+			}
+		}
+		break;
+        
+	case EStaminaState::Regenerating:
+		{
+			if (PlayerStats.CurrentStamina < PlayerStats.MaxStamina)
+			{
+				const float NewStamina = FMath::Clamp(
+					PlayerStats.CurrentStamina + StaminaRegenRate * DeltaTime, 
+					0.f, 
+					PlayerStats.MaxStamina
+				);
+                
+				if (NewStamina != PlayerStats.CurrentStamina)
+				{
+					PlayerStats.CurrentStamina = NewStamina;
+					UpdateStaminaUI(NewStamina);
+				}
+			}
+			else
+			{
+				StaminaState = EStaminaState::Idle;
+			}
+			if (GetCharacterMovement()->Velocity.Length() > 10.f)
+			{
+				StaminaState = EStaminaState::Draining;
+			}
+		}
+		break;
+        
+	case EStaminaState::Idle:
+		{
+			if (GetCharacterMovement()->Velocity.Length() > 100.f && PlayerStats.CurrentStamina > 0.f)
+			{
+				StaminaState = EStaminaState::Draining;
+			}
+			else if (PlayerStats.CurrentStamina < PlayerStats.MaxStamina)
+			{
+				StaminaState = EStaminaState::Regenerating;
+			}
+		}
+		break;
+	default:
+		// 无操作
+		break;
+	}
 }
 
 // 接口实现

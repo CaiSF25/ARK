@@ -6,8 +6,10 @@
 #include "Hotbar.h"
 #include "Blueprint/UserWidget.h"
 #include "InventoryWidget.h"
+#include "PlayerStatsWindow.h"
 #include "MainWidget.generated.h"
 
+class UStateNotifycationWidget;
 class UCraftingProgressBar;
 class UVerticalBox;
 class UItemAdded;
@@ -38,6 +40,21 @@ public:
 
 	UFUNCTION()
 	void ShowCraftingBar(const float InTime) const;
+
+	UFUNCTION()
+	UPlayerStatsWindow* GetPlayerStatsWindow() const { return PlayerStatsWindow; }
+
+	UFUNCTION()
+	void ShowStarvingNotification();
+	
+	UFUNCTION()
+	void ShowDehydratedNotification();
+
+	UFUNCTION()
+	void RemoveStarvingNotification();
+
+	UFUNCTION()
+	void RemoveDehydratedNotification();
 	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
@@ -45,6 +62,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
 	TSubclassOf<UCraftingProgressBar> CraftingProgressBarClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	TSubclassOf<UStateNotifycationWidget> StateNotifycationWidgetClass;
 	
 private:
 	UPROPERTY(meta=(BindWidget))
@@ -58,4 +78,16 @@ private:
 
 	UPROPERTY(meta=(BindWidget))
 	UVerticalBox* CraftWindowBox;
+
+	UPROPERTY(meta=(BindWidget))
+	UPlayerStatsWindow* PlayerStatsWindow;
+
+	UPROPERTY(meta=(BindWidget))
+	UVerticalBox* NotificationBox;
+
+	UPROPERTY()
+	UStateNotifycationWidget* StarvingWidget;
+
+	UPROPERTY()
+	UStateNotifycationWidget* DehydratedWidget;
 };
