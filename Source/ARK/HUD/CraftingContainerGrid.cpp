@@ -4,6 +4,7 @@
 #include "CraftingContainerGrid.h"
 
 #include "ARK/Inventory/PlayerInventory.h"
+#include "ARK/Structures/CraftingStructs.h"
 #include "Components/UniformGridPanel.h"
 #include "Components/UniformGridSlot.h"
 
@@ -62,15 +63,14 @@ void UCraftingContainerGrid::AddSlots(const ECraftingType LocalCraftingType)
 	}
 }
 
-void UCraftingContainerGrid::AddSlotToGrid(int32 Index, UCraftingSlot* SlotToAdd)
+void UCraftingContainerGrid::AddSlotToGrid(const int32 Index, UCraftingSlot* SlotToAdd) const
 {
 	const int32 Row = Index / SlotsPerRow;
 	const int32 Column = Index % SlotsPerRow;
 	
 	if (Grid && SlotToAdd)
 	{
-		UUniformGridSlot* GridSlot = Grid->AddChildToUniformGrid(SlotToAdd);
-		if (GridSlot)
+		if (UUniformGridSlot* GridSlot = Grid->AddChildToUniformGrid(SlotToAdd))
 		{
 			GridSlot->SetRow(Row);
 			GridSlot->SetColumn(Column);

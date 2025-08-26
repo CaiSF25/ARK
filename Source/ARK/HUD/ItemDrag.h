@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ARK/Inventory/ItemInfo.h"
+#include "ARK/Structures/ItemInfo.h"
 #include "Blueprint/DragDropOperation.h"
 #include "ItemDrag.generated.h"
 

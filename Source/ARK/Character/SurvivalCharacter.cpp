@@ -1,3 +1,5 @@
+
+
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
@@ -10,15 +12,19 @@
 #include "SurvivalPlayerController.h"
 #include "ARK/HarvestingSystem/DestructableHarvestable.h"
 #include "ARK/HarvestingSystem/GroundItemMaster.h"
-#include "ARK/HarvestingSystem/LargeItem.h"
-#include "ARK/HUD/CraftingStructs.h"
 #include "ARK/Interfaces/GroundItemInterface.h"
 #include "ARK/Items/Equipables/FirstPersonEquipable.h"
+#include "ARK/Structures/ConsumableStructs.h"
+#include "ARK/Structures/CraftingStructs.h"
+#include "ARK/Structures/ExperienceStruct.h"
+#include "ARK/Structures/LargeItem.h"
+#include "ARK/Structures/ResourceStructure.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
+struct FConsumableInfo;
 DEFINE_LOG_CATEGORY_STATIC(LogMyCharacter, Log, All);
 
 ASurvivalCharacter::ASurvivalCharacter()
@@ -101,8 +107,7 @@ void ASurvivalCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 ASurvivalPlayerController* ASurvivalCharacter::GetSurvivalController() const
 {
-	AController* PC = GetController();
-	if (IsValid(PC) && PC->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
+	if (AController* PC = GetController(); IsValid(PC) && PC->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
 	{
 		return Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(PC));
 	}
@@ -125,6 +130,10 @@ void ASurvivalCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProper
 	DOREPLIFETIME(ASurvivalCharacter, StaminaState);
 	DOREPLIFETIME(ASurvivalCharacter, bIsStarving);
 	DOREPLIFETIME(ASurvivalCharacter, bIsDehydrated);
+	DOREPLIFETIME(ASurvivalCharacter, bIsSprinting);
+	DOREPLIFETIME(ASurvivalCharacter, PlayerStats);
+	DOREPLIFETIME(ASurvivalCharacter, bWantsToSprint);
+	DOREPLIFETIME(ASurvivalCharacter, bClientHasMoveInput);
 	// DOREPLIFETIME(ASurvivalCharacter, ThirdPersonEquippedItem);
 }
 
@@ -138,13 +147,18 @@ void ASurvivalCharacter::Move(const FInputActionValue& Value)
 		AddMovementInput(GetActorForwardVector(), MovementVector.Y);
 		AddMovementInput(GetActorRightVector(), MovementVector.X);
 	}
-	if (GetCharacterMovement()->Velocity.Length() > 100.f)
+
+	const bool bHasInputNow = MovementVector.SizeSquared() > KINDA_SMALL_NUMBER;
+
+	// 仅本地玩家上报状态变化
+	if (IsLocallyControlled())
 	{
-		OnStartDrainStamina();
-	}
-	else
-	{
-		OnStopDrainStamina();
+		if (bHasInputNow != bLocalHasMoveInput)
+		{
+			bLocalHasMoveInput = bHasInputNow;
+			// 向服务器上报（仅在变化时发送，避免每帧 RPC）
+			ServerReportMoveInput(bLocalHasMoveInput);
+		}
 	}
 }
 
@@ -183,6 +197,33 @@ void ASurvivalCharacter::Interact()
 	else
 	{
 		ServerInteract();
+	}
+}
+
+void ASurvivalCharacter::ServerReportMoveInput_Implementation(bool bHasInput)
+{
+	bClientHasMoveInput = bHasInput;
+	EvaluateSprintState();
+}
+
+void ASurvivalCharacter::StopSprinting()
+{
+	bIsSprinting = false;
+	UpdateMovementSpeed();
+}
+
+void ASurvivalCharacter::UpdateMovementSpeed() const
+{
+	if (GetCharacterMovement())
+	{
+		if (bIsSprinting && PlayerStats.CurrentStamina > 0.f)
+		{
+			GetCharacterMovement()->MaxWalkSpeed = SprintSpeed;
+		}
+		else
+		{
+			GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
+		}
 	}
 }
 
@@ -366,7 +407,7 @@ bool ASurvivalCharacter::CheckIfCanCraftItem(int32 ID, const EContainerType& Con
 	return false;
 }
 
-std::tuple<FName, EContainerType, float> ASurvivalCharacter::CraftItem(int32 ItemID, EContainerType Container, ECraftingType TableType)
+std::tuple<FName, EContainerType, float, int32> ASurvivalCharacter::CraftItem(const int32 ItemID, EContainerType Container, const ECraftingType TableType) const
 {
 	const UDataTable* DataTable = GetRecipeDataTable(TableType);
 	
@@ -387,22 +428,21 @@ std::tuple<FName, EContainerType, float> ASurvivalCharacter::CraftItem(int32 Ite
 			ItemContainer->RemoveItems(Row->RequiredItems);
 			if (GetController() && GetController()->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
 			{
-				ASurvivalPlayerController* SurvivalController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(GetController()));
-				if (SurvivalController)
+				if (ASurvivalPlayerController* SurvivalController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(GetController())))
 				{
 					SurvivalController->ShowCraftingProgressBar(Row->CraftTime);
 				}
 			}
 			
-			return { RowName, Container, Row->CraftTime };
+			return { RowName, Container, Row->CraftTime, Row->ItemExperience };
 		}
 		else
 		{
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "CraftItem");
-			return { FName(), Container, 0 };
+			return { FName(), Container, 0, 0 };
 		}
 	}
-	return { FName(), Container, 0 };
+	return { FName(), Container, 0, 0 };
 }
 
 
@@ -452,6 +492,7 @@ void ASurvivalCharacter::UseHotbarFunction(int32 Index)
 		case EItemType::Armor:
 			break;
 		case EItemType::Consumable:
+			ConsumeItem(HorbarIndex, EContainerType::PlayerHotbar);
 			break;
 		case EItemType::Buildable:
 			break;
@@ -585,24 +626,26 @@ void ASurvivalCharacter::OnCheckIfCanCraftItem(int32 ID, const EContainerType& C
 	}
 }
 
-void ASurvivalCharacter::OnCraftItem(int32 ItemID, EContainerType Container, ECraftingType TableType)
+void ASurvivalCharacter::OnCraftItem(const int32 ItemID, const EContainerType Container, const ECraftingType TableType)
 {
 	if (HasAuthority())
 	{
 		if (bIsCrafting) return;
 		bIsCrafting = true;
-		const std::tuple<FName, EContainerType, float> Result = CraftItem(ItemID, Container, TableType);
+		const std::tuple<FName, EContainerType, float, int32> Result = CraftItem(ItemID, Container, TableType);
 		const FName ItemIDToAdd = std::get<0>(Result);
 		const EContainerType ItemContainer = std::get<1>(Result);
 		const float CraftTime = std::get<2>(Result);
+		const int32 ExperienceToAdd = std::get<3>(Result);
 		if (ItemIDToAdd != FName())
 		{
 			if (const UWorld* World = GetWorld())
 			{
 				FTimerDelegate TimerDel;
-				TimerDel.BindLambda([this, ItemIDToAdd, ItemContainer]()
+				TimerDel.BindLambda([this, ItemIDToAdd, ItemContainer, ExperienceToAdd]()
 				{
 					AddCraftedItem(ItemIDToAdd, ItemContainer);
+					OnAddExperience(ExperienceToAdd);
 					bIsCrafting = false;
 				});
 				World->GetTimerManager().SetTimer(
@@ -675,34 +718,216 @@ void ASurvivalCharacter::DequipCurItem(int32 Index)
 	}
 }
 
-
 void ASurvivalCharacter::ServerHotbar_Implementation(int32 Index)
 {
 	UseHotbarFunction(Index);
+}
+
+void ASurvivalCharacter::ConsumeItem(int32 Index, EContainerType Container)
+{
+	UItemContainer* ItemContainer = GetContainer(Container);
+	if (ItemContainer)
+	{
+		int32 LocalItemID = ItemContainer->GetItems()[Index].ItemID;
+		if (ItemContainer->RemoveQuantity(Index, 1).first)
+		{
+			const FName RowName = FName(FString::FromInt(LocalItemID));
+			static const FString ContextString(TEXT("CraftItem"));
+			if (!ConsumeableDataTable) return;
+			const auto Row = ConsumeableDataTable->FindRow<FConsumableInfo>(
+				RowName,
+				ContextString,
+				true
+				);
+			if (Row)
+			{
+				for (const auto& Stats : Row->StatsToUpdate)
+				{
+					if (Stats.bInstantEffect)
+					{
+						UpdateStatInstant(Stats.StatToModify, Stats.RestoreAmount);
+					}
+					if (Stats.bOverTime)
+					{
+						UpdateStatOverTime(Stats.StatToModify, Stats.OverTimeAmount, Stats.OverTimeDuration);
+					}
+				}
+			}
+		}
+	}
+}
+
+void ASurvivalCharacter::UpdateStatInstant(EStatEnum StatToChange, float Amount)
+{
+	const float LocalStat = FMath::Clamp(Amount + GetStateToUpdate(StatToChange), 0.f, GetMaxState(StatToChange));
+
+	switch (StatToChange)
+	{
+	case EStatEnum::Health:
+		PlayerStats.CurrentHealth = LocalStat;
+		break;
+	case EStatEnum::Food:
+		if (bIsStarving)
+		{
+			bIsStarving = false;
+		}
+		PlayerStats.CurrentFood = LocalStat;
+		break;
+	case EStatEnum::Water:
+		if (bIsDehydrated)
+		{
+			bIsDehydrated = false;
+		}
+		PlayerStats.CurrentWater = LocalStat;
+		break;
+	case EStatEnum::Stamina:
+		PlayerStats.CurrentStamina = LocalStat;
+		break;
+	default:
+		break;
+	}
+
+	ASurvivalPlayerController* SurvivalController = GetSurvivalController();
+	if (SurvivalController)
+	{
+		switch (StatToChange)
+		{
+		case EStatEnum::Health:
+			UpdateHealthUI();
+			break;
+		case EStatEnum::Food:
+			SurvivalController->ShowOrHideStarving(false);
+			UpdateFoodUI();
+			break;
+		case EStatEnum::Water:
+			SurvivalController->ShowOrHideDehydrated(false);
+			UpdateWaterUI();
+			break;
+		case EStatEnum::Stamina:
+			UpdateStaminaUI();
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+void ASurvivalCharacter::HealthOverTime()
+{
+	if (HealthTicksRemaining <= 0)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(HealthHandle);
+		return;
+	}
+	UpdateStatInstant(EStatEnum::Health, HealthAmountPerTick);
+	
+	HealthTicksRemaining -= 1;
+	if (HealthTicksRemaining <= 0)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(HealthHandle);
+	}
+}
+
+void ASurvivalCharacter::FoodOverTime()
+{
+	if (FoodTicksRemaining <= 0)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(FoodHandle);
+		return;
+	}
+	UpdateStatInstant(EStatEnum::Food, FoodAmountPerTick);
+	
+	FoodTicksRemaining -= 1;
+	if (FoodTicksRemaining <= 0)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(FoodHandle);
+	}
+}
+
+void ASurvivalCharacter::WaterOverTime()
+{
+	if (WaterTicksRemaining <= 0)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(WaterHandle);
+		return;
+	}
+	UpdateStatInstant(EStatEnum::Water, WaterAmountPerTick);
+	
+	WaterTicksRemaining -= 1;
+	if (WaterTicksRemaining <= 0)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(WaterHandle);
+	}
+}
+
+void ASurvivalCharacter::UpdateStatOverTime(EStatEnum StatToChange, float OverTimeAmount, float Duration)
+{
+	constexpr  float TickInterval = 1.0f;
+	const int32 Ticks = FMath::Max(1, FMath::CeilToInt(Duration / TickInterval));
+	const float Interval = Duration / static_cast<float>(Ticks);
+	switch (StatToChange)
+	{
+	case EStatEnum::Health:
+		{
+			HealthTicksRemaining = Ticks;
+			HealthAmountPerTick = OverTimeAmount / static_cast<float>(Ticks);
+			
+			GetWorld()->GetTimerManager().SetTimer(
+				HealthHandle,
+				this,
+				&ASurvivalCharacter::HealthOverTime,                                  
+				Interval,
+				true
+				);
+		}
+		break;
+	case EStatEnum::Food:
+		{
+			FoodTicksRemaining = Ticks;
+			FoodAmountPerTick = OverTimeAmount / static_cast<float>(Ticks);
+			
+			GetWorld()->GetTimerManager().SetTimer(
+				FoodHandle,
+				this,
+				&ASurvivalCharacter::FoodOverTime,                                  
+				Interval,
+				true
+				);
+		}
+		break;
+	case EStatEnum::Water:
+		{
+			WaterTicksRemaining = Ticks;
+			WaterAmountPerTick = OverTimeAmount / static_cast<float>(Ticks);
+			
+			GetWorld()->GetTimerManager().SetTimer(
+				WaterHandle,
+				this,
+				&ASurvivalCharacter::WaterOverTime,                                  
+				Interval,
+				true
+				);
+		}
+		break;
+	case EStatEnum::Stamina:
+		break;
+	default:
+		break;
+	}
 }
 
 void ASurvivalCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	const bool bIsMoving = GetCharacterMovement()->Velocity.Length() > 100.0f;
-
-	if (bIsMoving)
+	if (bIsSprinting && PlayerStats.CurrentStamina <= 0.f)
 	{
-		if (StaminaState != EStaminaState::Draining && PlayerStats.CurrentStamina > 0.f)
-		{
-			StaminaState = EStaminaState::Draining;
-		}
-	}
-	else
-	{
-		if (StaminaState != EStaminaState::Regenerating)
-		{
-			StaminaState = EStaminaState::Regenerating;
-		}
+		StopSprinting();
 	}
 
 	ProcessStamina(DeltaTime);
+
+	UpdateMovementSpeed();
 }
 
 void ASurvivalCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -722,7 +947,10 @@ void ASurvivalCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &ASurvivalCharacter::Interact);
 
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ASurvivalCharacter::Attack);
-
+		
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &ASurvivalCharacter::OnSprintPressed);
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &ASurvivalCharacter::OnSprintReleased);
+		
 		// UI 操作
 		for (int32 i = 0; i < HotbarActions.Num(); i++)
 		{
@@ -845,12 +1073,12 @@ void ASurvivalCharacter::MulticastBush_Implementation()
 	}
 }
 
-void ASurvivalCharacter::OnDelayFinished(FName& ItemIDToAdd, EContainerType& Container)
+void ASurvivalCharacter::OnDelayFinished(const FName& ItemIDToAdd, const EContainerType& Container) const
 {
 	AddCraftedItem(ItemIDToAdd, Container);
 }
 
-void ASurvivalCharacter::AddCraftedItem(const FName& ItemIDToAdd, const EContainerType& Container)
+void ASurvivalCharacter::AddCraftedItem(const FName& ItemIDToAdd, const EContainerType& Container) const
 {
 	static const FString ContextString(TEXT("AddCraftedItem"));
 	auto Row = ItemsDataTable->FindRow<FItemInfo>(
@@ -909,6 +1137,54 @@ UItemContainer* ASurvivalCharacter::GetContainer(const EContainerType& Container
 	return Container;
 }
 
+float ASurvivalCharacter::GetStateToUpdate(const EStatEnum& State)
+{
+	float Result;
+	switch (State)
+	{
+	case EStatEnum::Health:
+		Result = PlayerStats.CurrentHealth;
+		break;
+	case EStatEnum::Food:
+		Result = PlayerStats.CurrentFood;
+		break;
+	case EStatEnum::Water:
+		Result = PlayerStats.CurrentWater;
+		break;
+	case EStatEnum::Stamina:
+		Result = PlayerStats.CurrentStamina;
+		break;
+	default:
+		Result = PlayerStats.CurrentHealth;
+		break;
+	}
+	return Result;
+}
+
+float ASurvivalCharacter::GetMaxState(const EStatEnum& State)
+{
+	float Result;
+	switch (State)
+	{
+	case EStatEnum::Health:
+		Result = PlayerStats.MaxHealth;
+		break;
+	case EStatEnum::Food:
+		Result = PlayerStats.MaxFood;
+		break;
+	case EStatEnum::Water:
+		Result = PlayerStats.MaxWater;
+		break;
+	case EStatEnum::Stamina:
+		Result = PlayerStats.MaxStamina;
+		break;
+	default:
+		Result = PlayerStats.MaxHealth;
+		break;
+	}
+	return Result;
+}
+
 void ASurvivalCharacter::ApplyDamageToPlayer(float Damage, AActor* DamageCauser)
 {
 	if (!bIsDead)
@@ -936,7 +1212,7 @@ void ASurvivalCharacter::ApplyDamageToPlayer(float Damage, AActor* DamageCauser)
 	
 }
 
-void ASurvivalCharacter::OnRep_Starving() const
+void ASurvivalCharacter::OnRep_Starving()
 {
 	if (ASurvivalPlayerController* SurvivalController = GetSurvivalController())
 	{
@@ -944,12 +1220,22 @@ void ASurvivalCharacter::OnRep_Starving() const
 	}
 }
 
-void ASurvivalCharacter::OnRep_Dehydrated() const
+void ASurvivalCharacter::OnRep_Dehydrated()
 {
 	if (ASurvivalPlayerController* SurvivalController = GetSurvivalController())
 	{
 		SurvivalController->ShowOrHideDehydrated(bIsDehydrated);
 	}
+}
+
+void ASurvivalCharacter::OnRep_PlayerStats()
+{
+	if (PlayerStats.CurrentStamina <= 0.f && bIsSprinting)
+	{
+		bIsSprinting = false;
+		UpdateMovementSpeed();
+	}
+	UpdateStaminaUI();
 }
 
 float ASurvivalCharacter::DecreaseFloat(const float FloatToDecrease, const float Percentage, const float Max)
@@ -965,31 +1251,21 @@ void ASurvivalCharacter::FoodWaterDrain()
 	ASurvivalPlayerController* SurvivalController = GetSurvivalController();
 	bool bWasStarving = bIsStarving;
 	bool bWasDehydrated = bIsDehydrated;
-
+	
 	// 饥饿状态处理
 	bIsStarving = FoodFloat <= 0;
 	if (bIsStarving != bWasStarving)
 	{
-		if (bIsStarving)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Player is Starving"));
-		}
-        
 		if (SurvivalController)
 		{
 			SurvivalController->ShowOrHideStarving(bIsStarving);
 		}
 	}
-
+	
 	// 脱水状态处理
 	bIsDehydrated = WaterFloat <= 0;
 	if (bIsDehydrated != bWasDehydrated)
 	{
-		if (bIsDehydrated)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Player is Dehydrated"));
-		}
-        
 		if (SurvivalController)
 		{
 			SurvivalController->ShowOrHideDehydrated(bIsDehydrated);
@@ -1041,7 +1317,7 @@ void ASurvivalCharacter::DecreaseStatsOverTime()
 		DecreaseStatsHandle,                     // 定时器句柄
 		this,                                  // 拥有定时器的对象
 		&ASurvivalCharacter::PassiveStatDrain, // 要调用的函数
-		60.f,                                  // 调用间隔（秒）
+		10.f,                                  // 调用间隔（秒）
 		true);
 }
 
@@ -1059,6 +1335,30 @@ void ASurvivalCharacter::OnDecreaseStatsOverTime()
 	else
 	{
 		ServerDecreaseStatsOverTime();
+	}
+}
+
+void ASurvivalCharacter::UpdateFoodUI() const
+{
+	if (ASurvivalPlayerController* SurvivalController = GetSurvivalController())
+	{
+		SurvivalController->UpdateStatBar(
+			EStatEnum::Food, 
+			PlayerStats.CurrentFood,
+			PlayerStats.MaxFood
+		);
+	}
+}
+
+void ASurvivalCharacter::UpdateWaterUI() const
+{
+	if (ASurvivalPlayerController* SurvivalController = GetSurvivalController())
+	{
+		SurvivalController->UpdateStatBar(
+			EStatEnum::Water, 
+			PlayerStats.CurrentWater,
+			PlayerStats.MaxWater
+		);
 	}
 }
 
@@ -1100,6 +1400,18 @@ void ASurvivalCharacter::DecreaseHealth()
 void ASurvivalCharacter::RemoveHealth(float Amount)
 {
 	UGameplayStatics::ApplyDamage(this, Amount, GetController(), this, UDamageType::StaticClass());
+}
+
+void ASurvivalCharacter::UpdateHealthUI() const
+{
+	if (ASurvivalPlayerController* SurvivalController = GetSurvivalController())
+	{
+		SurvivalController->UpdateStatBar(
+			EStatEnum::Health, 
+			PlayerStats.CurrentHealth,
+			PlayerStats.MaxHealth
+		);
+	}
 }
 
 void ASurvivalCharacter::DecreaseHealthOverTime()
@@ -1214,22 +1526,24 @@ void ASurvivalCharacter::ServerCheckIfCanCraftItem_Implementation(int32 ID, cons
 	}
 }
 
-void ASurvivalCharacter::ServerCraftItem_Implementation(int32 ItemID, EContainerType Container, ECraftingType TableType)
+void ASurvivalCharacter::ServerCraftItem_Implementation(const int32 ItemID, const EContainerType Container, const ECraftingType TableType)
 {
 	if (bIsCrafting) return;
 	bIsCrafting = true;
-	const std::tuple<FName, EContainerType, float> Result = CraftItem(ItemID, Container, TableType);
+	const std::tuple<FName, EContainerType, float, int32> Result = CraftItem(ItemID, Container, TableType);
 	const FName ItemIDToAdd = std::get<0>(Result);
 	const EContainerType ItemContainer = std::get<1>(Result);
 	const float CraftTime = std::get<2>(Result);
+	const int32 ExperienceToAdd = std::get<3>(Result);
 	if (ItemIDToAdd != FName())
 	{
 		if (const UWorld* World = GetWorld())
 		{
 			FTimerDelegate TimerDel;
-			TimerDel.BindLambda([this, ItemIDToAdd, ItemContainer]()
+			TimerDel.BindLambda([this, ItemIDToAdd, ItemContainer, ExperienceToAdd]()
 			{
 				AddCraftedItem(ItemIDToAdd, ItemContainer);
+				OnAddExperience(ExperienceToAdd);
 				bIsCrafting = false;
 			});
 			World->GetTimerManager().SetTimer(
@@ -1259,94 +1573,229 @@ void ASurvivalCharacter::ServerStopDrainStamina_Implementation()
 	}
 }
 
-void ASurvivalCharacter::UpdateStaminaUI(float NewStamina)
+void ASurvivalCharacter::ServerSetWantsToSprint_Implementation(bool bNewWants)
 {
-	if (GetController() && GetController()->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
+	bWantsToSprint = bNewWants;
+}
+
+
+void ASurvivalCharacter::OnRep_IsSprinting()
+{
+	UpdateMovementSpeed();
+}
+
+void ASurvivalCharacter::OnSprintPressed()
+{
+	if (IsLocallyControlled())
 	{
-		ASurvivalPlayerController* SurvivalController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(GetController()));
-		if (SurvivalController)
-		{
-			SurvivalController->UpdateStatBar(EStatEnum::Stamina, PlayerStats.CurrentStamina, NewStamina);
-		}
+		ServerSetWantsToSprint(true);
 	}
+}
+
+void ASurvivalCharacter::OnSprintReleased()
+{
+	if (IsLocallyControlled())
+	{
+		ServerSetWantsToSprint(false);
+	}
+}
+
+void ASurvivalCharacter::EvaluateSprintState()
+{
+	if (!HasAuthority()) return; // 仅服务器评估
+
+	// 必要条件：玩家想冲刺、有耐力、在地面并且客户端报告存在移动输入
+	const bool bHasStamina = PlayerStats.CurrentStamina > 0.f;
+	const bool bIsOnGround = GetCharacterMovement() && GetCharacterMovement()->IsMovingOnGround();
+
+	// 使用客户端上报的输入标记（比 velocity 更能区分被击飞）
+	const bool bHasMoveInput = bClientHasMoveInput;
+
+	const bool bShouldSprint = bWantsToSprint && bHasStamina && bIsOnGround && bHasMoveInput;
+
+	if (bShouldSprint && !bIsSprinting)
+	{
+		bIsSprinting = true;
+		UpdateMovementSpeed();
+	}
+	else if (!bShouldSprint && bIsSprinting)
+	{
+		bIsSprinting = false;
+		UpdateMovementSpeed();
+	}
+}
+
+void ASurvivalCharacter::UpdateStaminaUI()
+{
+	if (ASurvivalPlayerController* SurvivalController = GetSurvivalController())
+	{
+		SurvivalController->UpdateStatBar(
+			EStatEnum::Stamina, 
+			PlayerStats.CurrentStamina,
+			PlayerStats.MaxStamina
+		);
+	}
+}
+
+void ASurvivalCharacter::ClientUpdateStaminaUI_Implementation()
+{
+	UpdateStaminaUI();
 }
 
 void ASurvivalCharacter::ProcessStamina(float DeltaTime)
 {
+	if (!HasAuthority()) return;
+	
+	EvaluateSprintState();
+	const bool bNeedDrain = bIsSprinting;
+	
 	switch (StaminaState)
+    {
+        case EStaminaState::Draining:
+            if (bNeedDrain)
+            {
+                // 消耗耐力（保持原逻辑）
+                const float NewStamina = FMath::Clamp(
+                    PlayerStats.CurrentStamina - StaminaDrainRate * DeltaTime,
+                    0.f,
+                    PlayerStats.MaxStamina
+                );
+
+                if (NewStamina != PlayerStats.CurrentStamina)
+                {
+                    PlayerStats.CurrentStamina = NewStamina;
+                    if (IsLocallyControlled())
+                    {
+                        UpdateStaminaUI();
+                    }
+                }
+
+                if (PlayerStats.CurrentStamina <= 0.f)
+                {
+                    // 耐力耗尽：停止冲刺并转为 Idle
+                    bWantsToSprint = false; // 客户端应收到复制后知道不能继续想冲刺
+                    bIsSprinting = false;
+                    UpdateMovementSpeed();
+                    StaminaState = EStaminaState::Idle;
+                }
+            }
+            else
+            {
+                StaminaState = EStaminaState::Regenerating;
+            }
+            break;
+
+        case EStaminaState::Regenerating:
+            // 保持原有再生逻辑
+            if (PlayerStats.CurrentStamina < PlayerStats.MaxStamina)
+            {
+                const float NewStamina = FMath::Clamp(
+                    PlayerStats.CurrentStamina + StaminaRegenRate * DeltaTime,
+                    0.f,
+                    PlayerStats.MaxStamina
+                );
+
+                if (NewStamina != PlayerStats.CurrentStamina)
+                {
+                    PlayerStats.CurrentStamina = NewStamina;
+                    if (IsLocallyControlled()) UpdateStaminaUI();
+                }
+            }
+            else
+            {
+                StaminaState = EStaminaState::Idle;
+            }
+
+            // 如果玩家仍然想冲刺并且恢复了一些耐力，重新评估是否开始耗耐力
+            if (bWantsToSprint && PlayerStats.CurrentStamina > 0.f)
+            {
+                EvaluateSprintState();
+                if (bIsSprinting)
+                {
+                    StaminaState = EStaminaState::Draining;
+                }
+            }
+            break;
+
+        case EStaminaState::Idle:
+            if (bIsSprinting)
+            {
+                StaminaState = EStaminaState::Draining;
+            }
+            else if (PlayerStats.CurrentStamina < PlayerStats.MaxStamina)
+            {
+                StaminaState = EStaminaState::Regenerating;
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+int32 ASurvivalCharacter::GetExperienceLevel(int32 Level) const
+{
+	if (!ExperienceDataTable || Level <= 0) return 0;
+	
+	Level = FMath::Clamp(Level, 1, 100);
+	
+	const FName RowName = FName(*FString::FromInt(PlayerStats.CurrentLevel));
+
+	if (const auto ExpData = ExperienceDataTable->FindRow<FExperienceStruct>(RowName, TEXT("Experience")))
 	{
-	case EStaminaState::Draining:
+		return ExpData->ExperienceNeeded;
+	}
+	
+	return 100 * FMath::Pow(1.1f, Level - 1);
+}
+
+void ASurvivalCharacter::AddExperience(const int32 Experience)
+{
+	if (Experience < 0) return;
+
+	PlayerStats.CurrentXP += Experience;
+
+	bool bLevelUp = false;
+	while (PlayerStats.CurrentLevel < 20 &&
+		PlayerStats.CurrentXP >= GetExperienceLevel(PlayerStats.CurrentLevel))
+	{
+		const int32 RequiredExp = GetExperienceLevel(PlayerStats.CurrentLevel);
+		PlayerStats.CurrentLevel++;
+		bLevelUp = true;
+
+		PlayerStats.CurrentXP -= RequiredExp;
+	}
+
+	if (PlayerStats.CurrentLevel >= 20)
+	{
+		const int32 MaxExp = GetExperienceLevel(20);
+		PlayerStats.CurrentXP = FMath::Min(PlayerStats.CurrentXP, MaxExp);
+	}
+
+	if (bLevelUp || Experience > 0)
+	{
+		if (ASurvivalPlayerController* SurvivalPC = GetSurvivalController())
 		{
-			// 只有在实际移动时才消耗耐力
-			if (GetCharacterMovement()->Velocity.Length() > 100.f)
-			{
-				const float NewStamina = FMath::Clamp(
-					PlayerStats.CurrentStamina - StaminaDrainRate * DeltaTime, 
-					0.f, 
-					PlayerStats.MaxStamina
-				);
-                
-				if (NewStamina != PlayerStats.CurrentStamina)
-				{
-					PlayerStats.CurrentStamina = NewStamina;
-					UpdateStaminaUI(NewStamina);
-				}
-                
-				if (PlayerStats.CurrentStamina <= 0.f)
-				{
-					StaminaState = EStaminaState::Idle;
-				}
-			}
-			else
-			{
-				// 如果没有实际移动，切换到恢复状态
-				StaminaState = EStaminaState::Regenerating;
-			}
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Cyan, "UpdateExperienceUI");
+			SurvivalPC->UpdateExperienceUI(PlayerStats.CurrentXP, GetExperienceLevel(PlayerStats.CurrentLevel), PlayerStats.CurrentLevel);
 		}
-		break;
-        
-	case EStaminaState::Regenerating:
-		{
-			if (PlayerStats.CurrentStamina < PlayerStats.MaxStamina)
-			{
-				const float NewStamina = FMath::Clamp(
-					PlayerStats.CurrentStamina + StaminaRegenRate * DeltaTime, 
-					0.f, 
-					PlayerStats.MaxStamina
-				);
-                
-				if (NewStamina != PlayerStats.CurrentStamina)
-				{
-					PlayerStats.CurrentStamina = NewStamina;
-					UpdateStaminaUI(NewStamina);
-				}
-			}
-			else
-			{
-				StaminaState = EStaminaState::Idle;
-			}
-			if (GetCharacterMovement()->Velocity.Length() > 10.f)
-			{
-				StaminaState = EStaminaState::Draining;
-			}
-		}
-		break;
-        
-	case EStaminaState::Idle:
-		{
-			if (GetCharacterMovement()->Velocity.Length() > 100.f && PlayerStats.CurrentStamina > 0.f)
-			{
-				StaminaState = EStaminaState::Draining;
-			}
-			else if (PlayerStats.CurrentStamina < PlayerStats.MaxStamina)
-			{
-				StaminaState = EStaminaState::Regenerating;
-			}
-		}
-		break;
-	default:
-		// 无操作
-		break;
+	}
+}
+
+void ASurvivalCharacter::ServerAddExperience_Implementation(const int32 Experience)
+{
+	AddExperience(Experience);
+}
+
+
+void ASurvivalCharacter::OnAddExperience(int32 Experience)
+{
+	if (HasAuthority())
+	{
+		AddExperience(Experience);
+	}
+	else
+	{
+		ServerAddExperience(Experience);
 	}
 }
 
@@ -1382,4 +1831,3 @@ FRotator ASurvivalCharacter::GetArrowRotation_Implementation()
 	const FRotator ArrowRotation = Arrow1->GetComponentRotation();
 	return ArrowRotation;
 }
-

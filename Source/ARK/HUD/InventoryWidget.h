@@ -9,6 +9,7 @@
 #include "Components/Button.h"
 #include "InventoryWidget.generated.h"
 
+class UPlayerInfoWindow;
 class UWidgetSwitcher;
 /**
  * 
@@ -27,12 +28,18 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	UCrafingWindow* GetCraftingWindow() const { return CraftingWindow; }
+
+	UFUNCTION(BlueprintCallable)
+	UPlayerInfoWindow* GetPlayerInfoWindow() const { return PlayerInfoWindow;}
 	
 	UFUNCTION()
 	void OnInventoryButtonClicked();
 
 	UFUNCTION()
 	void OnCraftingButtonClicked();
+
+	UFUNCTION()
+	void UpdateLevelText(int32 Level) const;
 	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(BindWidget))
@@ -40,6 +47,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(BindWidget))
 	UCrafingWindow* CraftingWindow;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(BindWidget))
+	UPlayerInfoWindow* PlayerInfoWindow;
 
 private:
 	UPROPERTY(meta=(BindWidget))
@@ -50,4 +60,7 @@ private:
 
 	UPROPERTY(meta=(BindWidget))
 	UWidgetSwitcher* InventoryWidgetSwitcher;
+
+	UPROPERTY(meta=(BindWidget))
+	UTextBlock* PlayerLevelText;
 };

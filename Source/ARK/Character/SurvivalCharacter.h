@@ -5,16 +5,16 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
-#include "PlayerStats.h"
-#include "ARK/HarvestingSystem/ResourceStructure.h"
-#include "ARK/HUD/CraftingStructs.h"
 #include "ARK/Inventory/PlayerInventory.h"
 #include "ARK/Interfaces/SurvivalCharacterInterface.h"
 #include "ARK/Inventory/PlayerHotBar.h"
-#include "ARK/Items/EquipableInfo.h"
+#include "ARK/Structures/EquipableInfo.h"
+#include "ARK/Structures/PlayerStats.h"
 #include "Sound/SoundCue.h"
 #include "SurvivalCharacter.generated.h"
 
+struct FResourceStructure;
+enum class ECraftingType : uint8;
 class UInputComponent;
 class USkeletalMeshComponent;
 class USceneComponent;
@@ -115,7 +115,7 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Component", meta = (AllowPrivateAccess = "true"))
 	UArrowComponent* Arrow1;
 
-	// 角色移动
+	// ------------------------------------------   角色移动   ------------------------------------------
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
 	class UInputMappingContext* FirstPersonInputContext;
 
@@ -134,6 +134,9 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
 	UInputAction* AttackAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
+	UInputAction* SprintAction;
+
 	void Move(const FInputActionValue& Value);
 
 	void Look(const FInputActionValue& Value);
@@ -142,6 +145,28 @@ private:
 
 	void Interact();
 
+	// 加速
+	float SprintSpeed = 800.f;
+	float WalkSpeed = 400.f;
+
+	UPROPERTY()
+	bool bLocalSprinting;
+	
+	UPROPERTY()
+	float LocalStamina;
+
+	UPROPERTY(Replicated) 
+	bool bClientHasMoveInput = false;
+
+	bool bLocalHasMoveInput = false;
+
+	UFUNCTION(Server, Reliable)
+	void ServerReportMoveInput(bool bHasInput);
+
+	void StopSprinting();
+	
+	void UpdateMovementSpeed() const;
+	
 	// UI操作
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="UI", meta=(AllowPrivateAccess = "true"))
 	UInputMappingContext* UIInputContext;
@@ -161,6 +186,12 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="DataTable", meta = (AllowPrivateAccess = "true"))
 	UDataTable* PlayerItemRecipeDataTable;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="DataTable", meta = (AllowPrivateAccess = "true"))
+	UDataTable* ConsumeableDataTable;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="DataTable", meta = (AllowPrivateAccess = "true"))
+	UDataTable* ExperienceDataTable;
+	
 	// 蒙太奇回调
 	UFUNCTION()
 	void OnThirdPersonMontageEnded(UAnimMontage* Montage, bool bInterrupted);
@@ -184,6 +215,10 @@ private:
 	UDataTable* GetRecipeDataTable(const ECraftingType& TableType) const;
 	
 	UItemContainer* GetContainer(const EContainerType& ContainerType) const;
+
+	float GetStateToUpdate(const EStatEnum& State);
+
+	float GetMaxState(const EStatEnum& State);
 	
 	UFUNCTION()
 	void ApplyDamageToPlayer(float Damage, AActor* DamageCauser);
@@ -193,8 +228,6 @@ private:
 	void OnMontageCompleted(UAnimMontage* Montage, bool bInterrupted);
 	
 	// 交互逻辑
-	
-
 	void SpawnEquipableThirdPerson(TSubclassOf<AActor> Class, FItemInfo ItemInfo, int32 LocalEquippedIndex);
 	
 	// 入口函数
@@ -207,13 +240,15 @@ private:
 	UFUNCTION(Server, Reliable)
 	void ServerInteract();
 
-	// 库存系统
+	// ------------------------------------------   库存系统   ------------------------------------------
+	// 玩家库存
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Inventory", meta = (AllowPrivateAccess = "true"))
 	UPlayerInventory* PlayerInventory;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Inventory", meta = (AllowPrivateAccess = "true"))
 	UPlayerHotBar* PlayerHotBar;
-	
+
+	// 拖拽功能
 	UFUNCTION(Server, Reliable)
 	void ServerOnSlotDrop(
 		EContainerType FromContainer,
@@ -231,19 +266,46 @@ private:
 		EArmorType ArmorType
 		);
 
+	// Hotbar热键
 	void UseHotbarFunction(int32 Index);
-	
-	void DequipCurItem(int32 Index);
 
 	UFUNCTION(Server, Reliable)
 	void ServerHotbar(int32 Index);
-	
-	// 武器系统
+
+	// 装备武器
+	void DequipCurItem(int32 Index);
+
 	UFUNCTION(Server, Reliable)
 	void ServerDequipCurItem(int32 Index);
 
 	UFUNCTION(Server, Reliable)
 	void ServerSpawnEquipableThirdPerson(TSubclassOf<AActor> Class, FItemInfo ItemInfo, int32 LocalEquippedIndex);
+
+	// 使用消耗品(立即生效）
+	void ConsumeItem(int32 Index, EContainerType Container);
+
+	void UpdateStatInstant(EStatEnum StatToChange, float Amount);
+
+	// 使用消耗品(持续生效)
+	FTimerHandle HealthHandle;
+
+	FTimerHandle FoodHandle;
+
+	FTimerHandle WaterHandle;
+
+	int32 HealthTicksRemaining = 0;
+	float HealthAmountPerTick = 1.0f;
+	void HealthOverTime();
+
+	int32 FoodTicksRemaining = 0;
+	float FoodAmountPerTick = 1.0f;
+	void FoodOverTime();
+
+	int32 WaterTicksRemaining = 0;
+	float WaterAmountPerTick = 1.0f;
+	void WaterOverTime();
+	
+	void UpdateStatOverTime(EStatEnum StatToChange, float OverTimeAmount, float Duration);
 	
 	// 采集系统
 	bool bIsHarvesting = false;
@@ -266,7 +328,7 @@ private:
 	FTimerHandle DelayHandle_CraftItem;
 	
 	UFUNCTION()
-	void OnDelayFinished(FName& ItemIDToAdd, EContainerType& Container);
+	void OnDelayFinished(const FName& ItemIDToAdd, const EContainerType& Container) const;
 	
 	void HarvestMontage();
 	
@@ -290,14 +352,14 @@ private:
 	// 制造系统
 	bool bIsCrafting = false;
 	
-	void AddCraftedItem(const FName& ItemIDToAdd, const EContainerType& Container);
+	void AddCraftedItem(const FName& ItemIDToAdd, const EContainerType& Container) const;
 	
 	bool CheckIfCanCraftItem(int32 ID, const EContainerType& Container, const ECraftingType& TableType);
 	
 	UFUNCTION(Server, Reliable)
 	void ServerCheckIfCanCraftItem(int32 ID, const EContainerType& Container, const ECraftingType& TableType);
 
-	std::tuple<FName, EContainerType, float> CraftItem(int32 ItemID, EContainerType Container, ECraftingType TableType);
+	std::tuple<FName, EContainerType, float, int32> CraftItem(int32 ItemID, EContainerType Container, ECraftingType TableType) const;
 	
 	UFUNCTION(Server, Reliable)
 	void ServerCraftItem(int32 ItemID, EContainerType Container, ECraftingType TableType);
@@ -309,24 +371,31 @@ private:
 	
 	bool bIsDead = false;
 	
-	UPROPERTY()
+	UPROPERTY(ReplicatedUsing=OnRep_PlayerStats)
 	FPlayerStats PlayerStats;
 	
-	UPROPERTY(Replicated, ReplicatedUsing=OnRep_Starving)
+	UPROPERTY(ReplicatedUsing=OnRep_Starving)
 	bool bIsStarving = false;
 
-	UPROPERTY(Replicated, ReplicatedUsing=OnRep_Dehydrated)
+	UPROPERTY(ReplicatedUsing=OnRep_Dehydrated)
 	bool bIsDehydrated = false;
+	
+	void UpdateFoodUI() const;
+
+	void UpdateWaterUI() const;
 
 	void CheckStartHealthDrain();
 
 	void CheckStopHealthDrain();
 
 	UFUNCTION()
-	void OnRep_Starving() const;
+	void OnRep_Starving();
 
 	UFUNCTION()
-	void OnRep_Dehydrated() const;
+	void OnRep_Dehydrated();
+
+	UFUNCTION()
+	void OnRep_PlayerStats();
 	
 	float DecreaseFloat(const float FloatToDecrease, const float Percentage, const float Max);
 	
@@ -345,6 +414,8 @@ private:
 	void DecreaseHealth();
 
 	void RemoveHealth(float Amount);
+	
+	void UpdateHealthUI() const;
 
 	void DecreaseHealthOverTime();
 
@@ -363,7 +434,27 @@ private:
 	UPROPERTY(Replicated)
 	EStaminaState StaminaState = EStaminaState::Idle;
 
-	void UpdateStaminaUI(float NewStamina);
+	UPROPERTY(Replicated)
+	bool bWantsToSprint = false;
+	
+	UPROPERTY(ReplicatedUsing=OnRep_IsSprinting)
+	bool bIsSprinting = false;
+
+	UFUNCTION()
+	void OnRep_IsSprinting();
+
+	UFUNCTION(Server, Reliable)
+	void ServerSetWantsToSprint(bool bNewWants);
+
+	void OnSprintPressed();
+	void OnSprintReleased();
+
+	void EvaluateSprintState();
+
+	void UpdateStaminaUI();
+
+	UFUNCTION(Client, Reliable)
+	void ClientUpdateStaminaUI();
 
 	void ProcessStamina(float DeltaTime);
 
@@ -377,6 +468,15 @@ private:
 	UFUNCTION(Server, Reliable)
 	void ServerStopDrainStamina();
 
+	// 玩家经验
+	int32 GetExperienceLevel(int32 Level) const;
+	
+	void AddExperience(int32 Experience);
+
+	UFUNCTION(Server, Reliable)
+	void ServerAddExperience(int32 Experience);
+
+	void OnAddExperience(int32 Experience);
 
 public:
 	// 接口实现

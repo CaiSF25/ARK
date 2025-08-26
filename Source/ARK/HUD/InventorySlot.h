@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "DraggedItem.h"
-#include "ARK/Inventory/ItemInfo.h"
+#include "ARK/Structures/ItemInfo.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/Border.h"
 #include "Components/ProgressBar.h"

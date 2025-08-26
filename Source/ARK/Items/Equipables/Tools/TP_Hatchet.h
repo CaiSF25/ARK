@@ -8,6 +8,8 @@
 #include "Sound/SoundCue.h"
 #include "TP_Hatchet.generated.h"
 
+enum class EToolTier : uint8;
+enum class EHarvestingToolType : uint8;
 /**
  * 
  */

@@ -1,9 +1,10 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "ARK/Items/ToolEnums.h"
 #include "Engine/DataTable.h"
 #include "ResourceStructure.generated.h"
+
+enum class EHarvestingToolType : uint8;
 
 USTRUCT(BlueprintType)
 struct FResourceStructure : public FTableRowBase

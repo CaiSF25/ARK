@@ -2,7 +2,8 @@
 
 
 #include "PlayerStatsWindow.h"
-#include "ARK/Character/PlayerStats.h"
+
+#include "ARK/Structures/PlayerStats.h"
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
 

@@ -3,6 +3,8 @@
 
 #include "DraggedItem.h"
 
+#include "ARK/Structures/ItemInfo.h"
+
 void UDraggedItem::NativeConstruct()
 {
 	Super::NativeConstruct();

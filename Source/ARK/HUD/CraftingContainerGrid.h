@@ -4,11 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "CraftingSlot.h"
-#include "CraftingStructs.h"
-#include "ARK/Inventory/ItemInfo.h"
 #include "Blueprint/UserWidget.h"
 #include "CraftingContainerGrid.generated.h"
 
+enum class EItemCategory : uint8;
+enum class ECraftingType : uint8;
+class UDataTable;
 /**
  * 
  */
@@ -47,5 +48,5 @@ protected:
 
 	void AddSlots(const ECraftingType LocalCraftingType);
 
-	void AddSlotToGrid(int32 Index, UCraftingSlot* SlotToAdd);
+	void AddSlotToGrid(int32 Index, UCraftingSlot* SlotToAdd) const;
 };

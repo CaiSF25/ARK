@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ItemInfo.h"
+#include "ARK/Structures/ItemInfo.h"
 #include "Components/ActorComponent.h"
 #include "ItemContainer.generated.h"
 
@@ -17,24 +17,24 @@ class ARK_API UItemContainer : public UActorComponent
 
 public:	
 	UItemContainer();
+	// 基础功能
+	UFUNCTION(BlueprintCallable, Category="Inventory")
+	int32 FindEmptySlot() const;
 
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	UFUNCTION(BlueprintPure)
+	FItemInfo GetItemAtIndex(const int32 Index) const;
 
-protected:
-	virtual void BeginPlay() override;
-	
-public:
+	TArray<int32> GetIndexesOfItem(const int32 ItemID) const;
+
+	// 物品操作
 	UFUNCTION(BlueprintCallable, Category="Inventory")
 	bool AddItem(const FItemInfo& Item);
-	
+
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category="Inventory")
 	void ServerAddItem(const FItemInfo& Item);
-
-	UFUNCTION(BlueprintCallable, Category="Inventory")
-	virtual bool AddItemToIndex(FItemInfo Item, int32 LocalSpecificIndex, int32 FromIndex);
 	
 	UFUNCTION(BlueprintCallable, Category="Inventory")
-	bool RemoveItem(int SlotIndex);
+	virtual bool AddItemToIndex(FItemInfo Item, int32 LocalSpecificIndex, int32 FromIndex);
 
 	UFUNCTION(BlueprintCallable, Category="Inventory")
 	virtual bool RemoveItemAtIndex(const int32 Index);
@@ -48,9 +48,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Inventory")
 	bool SplitStack(int32 SlotIndex, int32 SplitNum) const;
 
-	UFUNCTION(BlueprintCallable, Category="Inventory")
-	int32 FindEmptySlot() const;
-
+	// UI交互
 	UFUNCTION(BlueprintCallable, Category="Inventory")
 	void UpdateUI(int32 Index, const FItemInfo& Item, bool ResetSlot) const;
 
@@ -61,9 +59,6 @@ public:
 
 	EContainerType GetContainerType() const { return ContainerType; }
 
-	UFUNCTION(BlueprintPure)
-	FItemInfo GetItemAtIndex(const int32 Index) const;
-
 	TArray<FItemInfo> GetItems() const { return Items; }
 
 	UFUNCTION()
@@ -71,8 +66,10 @@ public:
 
 	UFUNCTION()
 	void RemoveItems(TArray<FItemStructure>& ItemsToRemove);
+	
+	bool UpdateItemQuantity(int32 Index, int32 NewQuantity);
 
-	TArray<int32> GetIndexesOfItem(const int32 ItemID) const;
+	std::pair<bool, int32> RemoveQuantity(int32 Index, int32 AmountToRemove);
 	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Inventory")
@@ -86,6 +83,7 @@ protected:
 	virtual void HandleSlotDrop(UItemContainer* FromContainer, int32 FromIndex, int32 DroppedIndex);
 
 private:
+	// 基础功能
 	UFUNCTION(BlueprintPure)
 	bool IsSlotEmpty(int32 SlotIndex) const;
 

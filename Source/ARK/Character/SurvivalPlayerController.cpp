@@ -4,8 +4,8 @@
 #include "SurvivalPlayerController.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
-#include "PlayerStats.h"
 #include "ARK/HUD/InventoryWidget.h"
+#include "ARK/HUD/PlayerInfoWindow.h"
 
 class UEnhancedInputLocalPlayerSubsystem;
 
@@ -23,7 +23,7 @@ void ASurvivalPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (ULocalPlayer* LocalPlayer = GetLocalPlayer())
+	if (const ULocalPlayer* LocalPlayer = GetLocalPlayer())
 	{
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
 		{
@@ -73,8 +73,7 @@ void ASurvivalPlayerController::ShowOrHideStarving_Implementation(bool bShowOrHi
 
 void ASurvivalPlayerController::ResetItemSlot_Implementation(const EContainerType& Container, int32 Index)
 {
-	UInventorySlot* Slot = GetInventoryWidget(Container, Index);
-	if (IsValid(Slot))
+	if (UInventorySlot* Slot = GetInventoryWidget(Container, Index); IsValid(Slot))
 	{
 		Slot->ResetSlot();
 	}
@@ -93,8 +92,8 @@ void ASurvivalPlayerController::HandleToggleInventory()
 	}
 }
 
-UInventorySlot* ASurvivalPlayerController::GetInventoryWidget(EContainerType Container, int32 SlotIndex)
- {
+UInventorySlot* ASurvivalPlayerController::GetInventoryWidget(const EContainerType Container, const int32 SlotIndex) const
+{
 	TArray<UInventorySlot*> Slots;
 	switch (Container)
 	{
@@ -112,11 +111,18 @@ UInventorySlot* ASurvivalPlayerController::GetInventoryWidget(EContainerType Con
 	return Slots[SlotIndex];
 }
 
-void ASurvivalPlayerController::UpdateStatBar_Implementation(const EStatEnum& State, float Current, float Max)
+void ASurvivalPlayerController::UpdateStatBar_Implementation(const EStatEnum& State, const float Current, const float Max)
 {
 	MainWidget->GetPlayerStatsWindow()->UpdateBar(State, Current, Max);
+	MainWidget->GetInventoryWidget()->GetPlayerInfoWindow()->UpdateStat(State, Current, Max);
 }
 
+
+void ASurvivalPlayerController::UpdateExperienceUI_Implementation(const int32 CurrentExp, const int32 MaxExp, const int32 Level)
+{
+	MainWidget->GetInventoryWidget()->GetPlayerInfoWindow()->UpdateExperience(CurrentExp, MaxExp);
+	MainWidget->GetInventoryWidget()->UpdateLevelText(Level);
+}
 
 AController* ASurvivalPlayerController::SurvivalGamePCRef_Implementation()
 {
@@ -128,26 +134,25 @@ void ASurvivalPlayerController::ShowCraftingProgressBar_Implementation(const flo
 	MainWidget->ShowCraftingBar(InTime);
 }
 
-void ASurvivalPlayerController::ShowItemWidget_Implementation(UTexture2D* ResourceImage, int32 ResourceQuantity,
+void ASurvivalPlayerController::ShowItemWidget_Implementation(UTexture2D* ResourceImage, const int32 ResourceQuantity,
                                                               const FText& ResourceName)
 {
 	MainWidget->ShowItemCollected(ResourceImage, ResourceQuantity, ResourceName);
 }
 
 
-void ASurvivalPlayerController::UpdateItemSlot_Implementation(const EContainerType& Container, int32 Index,
+void ASurvivalPlayerController::UpdateItemSlot_Implementation(const EContainerType& Container, const int32 Index,
                                                               const FItemInfo& ItemInfo)
 {
 	// CreatedWidget->InventoryWidget->ItemContainerGrid->CreatedWidgets
 
-	UInventorySlot* Slot = GetInventoryWidget(Container, Index);
-	if (IsValid(Slot))
+	if (UInventorySlot* Slot = GetInventoryWidget(Container, Index); IsValid(Slot))
 	{
 		Slot->UpdateSlot(ItemInfo);
 	}
 }
 
-void ASurvivalPlayerController::ToggleInventory_Implementation(bool bShow)
+void ASurvivalPlayerController::ToggleInventory_Implementation(const bool bShow)
 {
 	if (MainWidget)
 	{
@@ -163,7 +168,7 @@ void ASurvivalPlayerController::ToggleInventory_Implementation(bool bShow)
 	}
 	else
 	{
-		FInputModeGameOnly InputMode;
+		const FInputModeGameOnly InputMode;
 		SetInputMode(InputMode);
 	}
 }

@@ -3,10 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "CraftingStructs.h"
 #include "Blueprint/UserWidget.h"
 #include "CrafingWindow.generated.h"
 
+struct FItemRecipe;
 class UBorder;
 class UCraftingIngredient;
 class UScrollBox;

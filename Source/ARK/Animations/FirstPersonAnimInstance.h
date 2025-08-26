@@ -4,9 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimInstance.h"
-#include "ARK/Items/EquipableInfo.h"
+#include "ARK/Structures/EquipableInfo.h"
 #include "FirstPersonAnimInstance.generated.h"
-
 /**
  * 
  */

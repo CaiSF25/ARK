@@ -29,3 +29,8 @@ void UInventoryWidget::OnCraftingButtonClicked()
 {
 	InventoryWidgetSwitcher->SetActiveWidgetIndex(1);
 }
+
+void UInventoryWidget::UpdateLevelText(const int32 Level) const
+{
+	PlayerLevelText->SetText(FText::AsNumber(Level));
+}

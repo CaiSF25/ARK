@@ -6,7 +6,7 @@
 #include "ARK/HUD/MainWidget.h"
 #include "ARK/Interfaces/SurvivalCharacterInterface.h"
 #include "ARK/Interfaces/PlayerControllerInterface.h"
-#include "ARK/Inventory/ItemInfo.h"
+#include "ARK/Structures/ItemInfo.h"
 #include "GameFramework/PlayerController.h"
 #include "SurvivalPlayerController.generated.h"
 
@@ -27,12 +27,6 @@ protected:
 	
 public:
 	UFUNCTION(Client, Reliable)
-	void ShowOrHideStarving(bool bShowOrHide);
-
-	UFUNCTION(Client, Reliable)
-	void ShowOrHideDehydrated(bool bShowOrHide);
-	
-	UFUNCTION(Client, Reliable)
 	void UpdateItemSlot(const EContainerType& Container, int32 Index, const FItemInfo& ItemInfo);
 	
 	UFUNCTION(Client, Reliable)
@@ -49,7 +43,7 @@ public:
 	void HandleToggleInventory();
 
 	UFUNCTION(BlueprintCallable, Category="UI")
-	UInventorySlot* GetInventoryWidget(EContainerType Container, int32 SlotIndex);
+	UInventorySlot* GetInventoryWidget(EContainerType Container, int32 SlotIndex) const;
 
 	UFUNCTION(Client, Reliable, BlueprintCallable)
 	void ShowItemWidget(UTexture2D* ResourceImage, int32 ResourceQuantity, const FText& ResourceName);
@@ -57,9 +51,19 @@ public:
 	UFUNCTION()
 	UMainWidget* GetMainWidget() const { return MainWidget; }
 
+	// 更新玩家状态窗口
 	UFUNCTION(Client, Reliable)
-	void UpdateStatBar(const EStatEnum& State, float Current, float Max);
+	void UpdateStatBar(const EStatEnum& State, const float Current, const float Max);
 
+	UFUNCTION(Client, Reliable)
+	void ShowOrHideStarving(bool bShowOrHide);
+
+	UFUNCTION(Client, Reliable)
+	void ShowOrHideDehydrated(bool bShowOrHide);
+
+	UFUNCTION(Client, Reliable)
+	void UpdateExperienceUI(int32 CurrentExp, int32 MaxExp, const int32 Level);
+	
 	// 接口实现
 	virtual AController* SurvivalGamePCRef_Implementation() override;
 	

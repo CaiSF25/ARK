@@ -58,7 +58,10 @@ void UMainWidget::ShowStarvingNotification()
 		StarvingWidget->bIsStarvingOrDehydrated = true;
 		NotificationBox->AddChild(StarvingWidget);
 	}
-	
+	else
+	{
+		NotificationBox->AddChild(StarvingWidget);
+	}
 }
 
 void UMainWidget::ShowDehydratedNotification()
@@ -68,6 +71,10 @@ void UMainWidget::ShowDehydratedNotification()
 		if (!StateNotifycationWidgetClass) return;
 		DehydratedWidget = CreateWidget<UStateNotifycationWidget>(GetWorld(), StateNotifycationWidgetClass);
 		DehydratedWidget->bIsStarvingOrDehydrated = false;
+		NotificationBox->AddChild(DehydratedWidget);
+	}
+	else
+	{
 		NotificationBox->AddChild(DehydratedWidget);
 	}
 }

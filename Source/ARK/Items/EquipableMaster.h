@@ -3,9 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "EquipableInfo.h"
 #include "ItemMaster.h"
 #include "ARK/Interfaces/EquipableItem.h"
+#include "ARK/Structures/EquipableInfo.h"
 #include "EquipableMaster.generated.h"
 
 /**

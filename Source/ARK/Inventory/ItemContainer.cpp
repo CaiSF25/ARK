@@ -5,23 +5,12 @@
 
 #include "ARK/Character/SurvivalCharacter.h"
 #include "ARK/Character/SurvivalPlayerController.h"
+#include "ARK/Structures/CraftingStructs.h"
 
 UItemContainer::UItemContainer()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	SetIsReplicatedByDefault(true);
-}
-
-void UItemContainer::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
-{
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-}
-
-void UItemContainer::BeginPlay()
-{
-	Super::BeginPlay();
-
 }
 
 bool UItemContainer::AddItem(const FItemInfo& Item)
@@ -84,11 +73,6 @@ bool UItemContainer::AddItemToIndex(FItemInfo Item, int32 LocalSpecificIndex, in
 		Items[LocalSpecificIndex] = Item;
 		return true;
 	}
-	return false;
-}
-
-bool UItemContainer::RemoveItem(int SlotIndex)
-{
 	return false;
 }
 
@@ -190,7 +174,29 @@ bool UItemContainer::ContainsItems(TArray<FItemStructure>& RequiredItems)
 
 void UItemContainer::RemoveItems(TArray<FItemStructure>& ItemsToRemove)
 {
-	for (const FItemStructure& Req : ItemsToRemove)
+	TMap<int32, int32> RemoveMap; // ItemID -> Quantity
+	for (const auto& Req : ItemsToRemove) {
+		RemoveMap.FindOrAdd(Req.ItemID) += Req.ItemQuantity;
+	}
+
+	for (int32 Index = 0; Index < Items.Num() && RemoveMap.Num() > 0; Index++) {
+		FItemInfo& Slot = Items[Index];
+		if (int32* QtyPtr = RemoveMap.Find(Slot.ItemID)) {
+			const int32 ToRemove = FMath::Min(*QtyPtr, Slot.ItemQuantity);
+			Slot.ItemQuantity -= ToRemove;
+			*QtyPtr -= ToRemove;
+
+			if (Slot.ItemQuantity == 0) {
+				Slot = FItemInfo(); // 清空槽位
+				UpdateUI(Index, Slot, true);
+			} else {
+				UpdateUI(Index, Slot, false);
+			}
+
+			if (*QtyPtr == 0) RemoveMap.Remove(Slot.ItemID);
+		}
+	}
+	/*for (const FItemStructure& Req : ItemsToRemove)
 	{
 		int32 RemainingToRemove = Req.ItemQuantity;
 		TArray<int32> SlotIndexes = GetIndexesOfItem(Req.ItemID);
@@ -215,32 +221,6 @@ void UItemContainer::RemoveItems(TArray<FItemStructure>& ItemsToRemove)
 
 			if (RemainingToRemove == 0) break;
 		}
-	}
-	/*TArray<FItemStructure> LocalItemsToRemove = ItemsToRemove;
-	TArray<FItemStructure> ListItemToRemove = ItemsToRemove;
-	for (int32 Index = 0; Index < LocalItemsToRemove.Num(); Index++)
-	{
-		int32 LocalQuantityToRemove = LocalItemsToRemove[Index].ItemQuantity;
-		TArray<int32> LocalItemIndexes = GetIndexesOfItem(LocalItemsToRemove[Index].ItemID);
-		for (int32 ItemIndex = 0; ItemIndex < LocalItemIndexes.Num(); ItemIndex++)
-		{
-			int32 LocalSlotIndex = LocalItemIndexes[ItemIndex];
-			if (Items[LocalSlotIndex].ItemQuantity -LocalQuantityToRemove <= 0)
-			{
-				LocalQuantityToRemove =  LocalQuantityToRemove - (Items[LocalSlotIndex].ItemQuantity - LocalQuantityToRemove);
-				Items[LocalSlotIndex] = FItemInfo();
-				UpdateUI(LocalSlotIndex, FItemInfo(), true);
-				if (LocalQuantityToRemove == 0)
-				{
-					
-				}
-			}
-			else
-			{
-				Items[LocalSlotIndex].ItemQuantity -= LocalQuantityToRemove;
-				UpdateUI(LocalSlotIndex, Items[LocalSlotIndex], false);
-			}
-		}
 	}*/
 }
 
@@ -255,6 +235,31 @@ TArray<int32> UItemContainer::GetIndexesOfItem(const int32 ItemID) const
 		}
 	}
 	return IndexesFound;
+}
+
+bool UItemContainer::UpdateItemQuantity(int32 Index, int32 NewQuantity)
+{
+	if (NewQuantity <= 0)
+	{
+		return RemoveItemAtIndex(Index);
+	}
+	Items[Index].ItemQuantity = NewQuantity;
+	UpdateUI(Index, Items[Index], false);
+	return false;
+}
+
+std::pair<bool, int32> UItemContainer::RemoveQuantity(int32 Index, int32 AmountToRemove)
+{
+	int32 LocalCurrentQuantity = Items[Index].ItemQuantity;
+	int32 NewQuantity = LocalCurrentQuantity - AmountToRemove;
+
+	bool bSuccess = (NewQuantity >= 0);
+
+	if (bSuccess) {
+		UpdateItemQuantity(Index, NewQuantity);
+	}
+	
+	return {bSuccess, LocalCurrentQuantity};
 }
 
 void UItemContainer::HandleSlotDrop(UItemContainer* FromContainer, int32 FromIndex, int32 DroppedIndex)

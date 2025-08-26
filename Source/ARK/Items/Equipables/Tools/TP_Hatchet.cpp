@@ -5,9 +5,10 @@
 
 #include "ARSessionConfig.h"
 #include "ARK/HarvestingSystem/DestructableHarvestable.h"
-#include "ARK/HarvestingSystem/LargeItem.h"
 #include "ARK/HarvestingSystem/LargeItemMaster.h"
 #include "ARK/Interfaces/LargeItemInterface.h"
+#include "ARK/Structures/LargeItem.h"
+#include "ARK/Structures/ToolEnums.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 
@@ -26,8 +27,7 @@ void ATP_Hatchet::ServerOverlap_Implementation(const FVector& SpherePos, const F
 
 void ATP_Hatchet::ClientGetRotation_Implementation()
 {
-	AActor* LocalOwner = GetOwner();
-	if (LocalOwner->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
+	if (AActor* LocalOwner = GetOwner(); LocalOwner->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
 	{
 		OnOverlap(ISurvivalCharacterInterface::Execute_GetArrowLocation(LocalOwner), ISurvivalCharacterInterface::Execute_GetArrowRotation(LocalOwner));
 	}
@@ -49,8 +49,7 @@ void ATP_Hatchet::HarvestFoliage(const float Damage, AActor* Ref) const
 {
 	if (Ref->GetClass()->ImplementsInterface(ULargeItemInterface::StaticClass()))
 	{
-		ALargeItemMaster* LargeItemMaster = ILargeItemInterface::Execute_GetLargeItemRef(Ref);
-		if (IsValid(LargeItemMaster))
+		if (ALargeItemMaster* LargeItemMaster = ILargeItemInterface::Execute_GetLargeItemRef(Ref); IsValid(LargeItemMaster))
 		{
 			const float Health = LargeItemMaster->GetHealth() - Damage;
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, FString::FromInt(Health));
@@ -59,7 +58,7 @@ void ATP_Hatchet::HarvestFoliage(const float Damage, AActor* Ref) const
 			if (Health <= 0)
 			{
 				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, "Tree Is Harvested");
-				FLargeItem* Row = LargeItemResourceTable->FindRow<FLargeItem>(
+				const FLargeItem* Row = LargeItemResourceTable->FindRow<FLargeItem>(
 					RowName,
 					ContextString,
 					true);
@@ -86,7 +85,7 @@ void ATP_Hatchet::HarvestFoliage(const float Damage, AActor* Ref) const
 					{
 						FResourceStructure HarvestItem = Row->GivenItems[i];
 						const float BaseVar = static_cast<float>(HarvestItem.Quantity);
-						const float RateVar = 1;
+						constexpr float RateVar = 1;
 						const float ToolTypeVar = ToolType == HarvestItem.PreferedToolType ? FMath::RandRange(0.2, 0.4) : FMath::RandRange(0.01, 0.1);
 						float ToolTierVar;
 						const float DamageVar = Damage;
@@ -99,8 +98,7 @@ void ATP_Hatchet::HarvestFoliage(const float Damage, AActor* Ref) const
 							ToolTierVar = FMath::RandRange(1.2, 1.6);
 							break;
 						}
-						const int ResourceQuantity = FMath::RoundToFloat(BaseVar * RateVar * ToolTierVar * ToolTypeVar * DamageVar);
-						if (ResourceQuantity > 0)
+						if (const int ResourceQuantity = FMath::RoundToFloat(BaseVar * RateVar * ToolTierVar * ToolTypeVar * DamageVar); ResourceQuantity > 0)
 						{
 							HarvestItem.Quantity = ResourceQuantity;
 						

@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "InventorySlot.h"
-#include "ARK/Inventory/ItemInfo.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/UniformGridPanel.h"
 #include "ItemContainerGrid.generated.h"
@@ -36,7 +35,7 @@ public:
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Setting", meta = (BindWidget))
-	class UUniformGridPanel* Grid;
+	UUniformGridPanel* Grid;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Setting", meta = (ExposeOnSpawn = true))
 	int32 SlotsPerRow;

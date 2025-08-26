@@ -2,9 +2,6 @@
 
 
 #include "CrafingWindow.h"
-
-#include "CraftingStructs.h"
-#include "ARK/Inventory/ItemInfo.h"
 #include "Components/Button.h"
 #include "Components/Image.h"
 #include "Components/MultiLineEditableText.h"
@@ -13,6 +10,7 @@
 #include "CraftingIngredient.h"
 #include "ARK/Character/SurvivalCharacter.h"
 #include "ARK/Interfaces/SurvivalCharacterInterface.h"
+#include "ARK/Structures/CraftingStructs.h"
 #include "Components/Border.h"
 #include "Components/WidgetSwitcher.h"
 #include "GameFramework/Character.h"
@@ -68,7 +66,7 @@ void UCrafingWindow::OnStructuresButtonClicked()
 	CraftingGridSwitcher->SetActiveWidgetIndex(3);
 }
 
-void UCrafingWindow::ShowItemRequirements(int32 ItemID)
+void UCrafingWindow::ShowItemRequirements(const int32 ItemID)
 {
 	ItemSelectedID = ItemID;
 	CraftRecipeInfo->SetActiveWidgetIndex(1);
@@ -95,8 +93,7 @@ void UCrafingWindow::ShowItemRequirements(int32 ItemID)
 		const UWorld* World = GetWorld();
 		if (!World) return;
 
-		ACharacter* PlayerCharacter = UGameplayStatics::GetPlayerCharacter(World, 0);
-		if (PlayerCharacter && PlayerCharacter->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
+		if (ACharacter* PlayerCharacter = UGameplayStatics::GetPlayerCharacter(World, 0); PlayerCharacter && PlayerCharacter->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
 		{
 			ASurvivalCharacter* Character = Cast<ASurvivalCharacter>(ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(PlayerCharacter));
 			Character->OnCheckIfCanCraftItem(ItemSelectedID, EContainerType::PlayerInventory, ECraftingType::PlayerInventory);
