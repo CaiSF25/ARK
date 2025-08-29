@@ -118,10 +118,44 @@ void ASurvivalPlayerController::UpdateStatBar_Implementation(const EStatEnum& St
 }
 
 
-void ASurvivalPlayerController::UpdateExperienceUI_Implementation(const int32 CurrentExp, const int32 MaxExp, const int32 Level)
+void ASurvivalPlayerController::UpdateExperienceUI_Implementation(const int32 CurrentExp, const int32 MaxExp)
 {
 	MainWidget->GetInventoryWidget()->GetPlayerInfoWindow()->UpdateExperience(CurrentExp, MaxExp);
+}
+
+void ASurvivalPlayerController::ExperienceNotify_Implementation(const int32 Experience)
+{
+	MainWidget->AddExperienceNotification(Experience);
+}
+
+void ASurvivalPlayerController::LevelUpNotify_Implementation(const int32 Level)
+{
+	MainWidget->ShowLevelUpNotification(Level);
+}
+
+void ASurvivalPlayerController::UpdateLevelUp_Implementation(const int32 Level)
+{
 	MainWidget->GetInventoryWidget()->UpdateLevelText(Level);
+}
+
+void ASurvivalPlayerController::UpdateSkillPoints_Implementation(const int32 SkillPoints)
+{
+	MainWidget->GetInventoryWidget()->GetPlayerInfoWindow()->UpdateSkillPoints(SkillPoints);
+}
+
+void ASurvivalPlayerController::RemoveLevelNotify_Implementation()
+{
+	MainWidget->RemoveLevelUpNotification();
+}
+
+void ASurvivalPlayerController::UpdateArmorUI_Implementation(const EArmorType& ArmorType, const FItemInfo& ItemInfo)
+{
+	MainWidget->GetInventoryWidget()->UpdateArmorSlot(ArmorType, ItemInfo);
+}
+
+void ASurvivalPlayerController::RemoveArmorUI_Implementation(const EArmorType& ArmorType)
+{
+	MainWidget->GetInventoryWidget()->RemoveArmorSlot(ArmorType);
 }
 
 AController* ASurvivalPlayerController::SurvivalGamePCRef_Implementation()

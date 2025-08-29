@@ -9,6 +9,8 @@
 #include "PlayerStatsWindow.h"
 #include "MainWidget.generated.h"
 
+class ULevelNotification;
+class UExperienceText;
 class UStateNotifycationWidget;
 class UCraftingProgressBar;
 class UVerticalBox;
@@ -41,6 +43,7 @@ public:
 	UFUNCTION()
 	void ShowCraftingBar(const float InTime) const;
 
+	// 玩家状态
 	UFUNCTION()
 	UPlayerStatsWindow* GetPlayerStatsWindow() const { return PlayerStatsWindow; }
 
@@ -51,10 +54,17 @@ public:
 	void ShowDehydratedNotification();
 
 	UFUNCTION()
-	void RemoveStarvingNotification();
+	void RemoveStarvingNotification() const;
 
 	UFUNCTION()
-	void RemoveDehydratedNotification();
+	void RemoveDehydratedNotification() const;
+
+	// 玩家经验与升级
+	void AddExperienceNotification(int32 ExperienceAmount);
+
+	void ShowLevelUpNotification(int32 NewLevel);
+
+	void RemoveLevelUpNotification() const;
 	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
@@ -65,6 +75,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
 	TSubclassOf<UStateNotifycationWidget> StateNotifycationWidgetClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	TSubclassOf<UExperienceText> ExperienceTextClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	TSubclassOf<ULevelNotification> LevelNotificationClass;
 	
 private:
 	UPROPERTY(meta=(BindWidget))
@@ -90,4 +106,10 @@ private:
 
 	UPROPERTY()
 	UStateNotifycationWidget* DehydratedWidget;
+
+	UPROPERTY()
+	UExperienceText* ExperienceText;
+
+	UPROPERTY()
+	ULevelNotification* LevelNotification;
 };

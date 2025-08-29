@@ -12,7 +12,9 @@
 #include "SurvivalPlayerController.h"
 #include "ARK/HarvestingSystem/DestructableHarvestable.h"
 #include "ARK/HarvestingSystem/GroundItemMaster.h"
+#include "ARK/Interfaces/ArmorItemInterface.h"
 #include "ARK/Interfaces/GroundItemInterface.h"
+#include "ARK/Items/ArmorMaster.h"
 #include "ARK/Items/Equipables/FirstPersonEquipable.h"
 #include "ARK/Structures/ConsumableStructs.h"
 #include "ARK/Structures/CraftingStructs.h"
@@ -67,6 +69,12 @@ ASurvivalCharacter::ASurvivalCharacter()
 	// 数据表
 	bReplicates = true;
 	EquipableState = EEquipableState::Default;
+
+	// 护甲
+	ArmorSlots.Add(EArmorType::Helmet, nullptr);
+	ArmorSlots.Add(EArmorType::Chest, nullptr);
+	ArmorSlots.Add(EArmorType::Pants, nullptr);
+	ArmorSlots.Add(EArmorType::Boots, nullptr);
 }
 
 void ASurvivalCharacter::BeginPlay()
@@ -114,6 +122,15 @@ ASurvivalPlayerController* ASurvivalCharacter::GetSurvivalController() const
 	return nullptr;
 }
 
+AArmorMaster* ASurvivalCharacter::GetArmorMaster(AItemMaster* ItemMaster)
+{
+	if (ItemMaster->GetClass()->ImplementsInterface(UArmorItemInterface::StaticClass()))
+	{
+		return IArmorItemInterface::Execute_GetArmorRef(ItemMaster);
+	}
+	return nullptr;
+}
+
 void ASurvivalCharacter::HandleAnyDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType,
                                          AController* InstigatedBy, AActor* DamageCauser)
 {
@@ -134,6 +151,10 @@ void ASurvivalCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProper
 	DOREPLIFETIME(ASurvivalCharacter, PlayerStats);
 	DOREPLIFETIME(ASurvivalCharacter, bWantsToSprint);
 	DOREPLIFETIME(ASurvivalCharacter, bClientHasMoveInput);
+	DOREPLIFETIME(ASurvivalCharacter, HelmetSlots);
+	DOREPLIFETIME(ASurvivalCharacter, ChestSlots);
+	DOREPLIFETIME(ASurvivalCharacter, PantsSlots);
+	DOREPLIFETIME(ASurvivalCharacter, BootsSlots);
 	// DOREPLIFETIME(ASurvivalCharacter, ThirdPersonEquippedItem);
 }
 
@@ -448,8 +469,7 @@ std::tuple<FName, EContainerType, float, int32> ASurvivalCharacter::CraftItem(co
 
 void ASurvivalCharacter::SpawnEquipableFirstPerson_Implementation(TSubclassOf<AActor> Class, FName SocketName)
 {
-	UWorld* World = GetWorld();
-	if (World)
+	if (UWorld* World = GetWorld())
 	{
 		FirstPersonEquippedItem = World->SpawnActor(Class);
 		const FAttachmentTransformRules AttachmentRules(
@@ -505,7 +525,7 @@ void ASurvivalCharacter::UseHotbarFunction(int32 Index)
 	}
 }
 
-void ASurvivalCharacter::Hotbar(int32 Index)
+void ASurvivalCharacter::Hotbar(const int32 Index)
 {
 	if (HasAuthority())
 	{
@@ -605,7 +625,7 @@ void ASurvivalCharacter::OnStopDrainStamina()
 	}
 }
 
-void ASurvivalCharacter::OnCheckIfCanCraftItem(int32 ID, const EContainerType& Container,
+void ASurvivalCharacter::OnCheckIfCanCraftItem(const int32 ID, const EContainerType& Container,
                                                const ECraftingType& TableType)
 {
 	if (HasAuthority())
@@ -613,8 +633,7 @@ void ASurvivalCharacter::OnCheckIfCanCraftItem(int32 ID, const EContainerType& C
 		const bool CanCraft = CheckIfCanCraftItem(ID, Container, TableType);
 		if (GetController() && GetController()->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
 		{
-			ASurvivalPlayerController* SurvivalController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(GetController()));
-			if (SurvivalController)
+			if (ASurvivalPlayerController* SurvivalController = Cast<ASurvivalPlayerController>(IPlayerControllerInterface::Execute_SurvivalGamePCRef(GetController())))
 			{
 				SurvivalController->UpdateCraftStatus(CanCraft);
 			}
@@ -623,6 +642,18 @@ void ASurvivalCharacter::OnCheckIfCanCraftItem(int32 ID, const EContainerType& C
 	else
 	{
 		ServerCheckIfCanCraftItem(ID, Container, TableType);
+	}
+}
+
+void ASurvivalCharacter::OnApplySkillPoints(const EStatEnum& Stat)
+{
+	if (HasAuthority())
+	{
+		ApplySkillPoints(Stat);
+	}
+	else
+	{
+		ServerApplySkillPoints(Stat);
 	}
 }
 
@@ -676,7 +707,7 @@ void ASurvivalCharacter::ServerAttack_Implementation()
 	}
 }
 
-void ASurvivalCharacter::MulticastWeaponEquip_Implementation(AActor* Target, FName SocketName,
+void ASurvivalCharacter::MulticastWeaponEquip_Implementation(AActor* Target, const FName& SocketName,
                                                              const EEquipableState& EquippedState)
 {
 	if (IsValid(Target))
@@ -705,7 +736,7 @@ void ASurvivalCharacter::DequipFirstPerson_Implementation()
 	FirstPersonEquippedItem->Destroy();
 }
 
-void ASurvivalCharacter::DequipCurItem(int32 Index)
+void ASurvivalCharacter::DequipCurItem(const int32 Index)
 {
 	if (Index == EquippedIndex)
 	{
@@ -718,17 +749,116 @@ void ASurvivalCharacter::DequipCurItem(int32 Index)
 	}
 }
 
-void ASurvivalCharacter::ServerHotbar_Implementation(int32 Index)
+void ASurvivalCharacter::ServerHotbar_Implementation(const int32 Index)
 {
 	UseHotbarFunction(Index);
 }
 
-void ASurvivalCharacter::ConsumeItem(int32 Index, EContainerType Container)
+void ASurvivalCharacter::ServerEquipArmor_Implementation(const EContainerType& FromContainer, int32 FromIndex,
+	const EArmorType& ArmorTypeSlot)
 {
-	UItemContainer* ItemContainer = GetContainer(Container);
-	if (ItemContainer)
+	EquipArmor(FromContainer, FromIndex, ArmorTypeSlot);
+}
+
+AItemMaster*& ASurvivalCharacter::GetArmorSlotRefByType(const EArmorType Type)
+{
+	switch (Type)
 	{
-		int32 LocalItemID = ItemContainer->GetItems()[Index].ItemID;
+	case EArmorType::Helmet: return HelmetSlots;
+	case EArmorType::Chest: return ChestSlots;
+	case EArmorType::Pants: return PantsSlots;
+	case EArmorType::Boots: return BootsSlots;
+	default: return HelmetSlots;
+	}
+}
+
+void ASurvivalCharacter::EquipArmor(const EContainerType& FromContainer, const int32 FromIndex,
+                                    const EArmorType& ArmorTypeSlot)
+{
+	if (FromContainer != EContainerType::PlayerInventory) return;
+	if (!PlayerInventory) return;
+	const TArray<FItemInfo>& Items = PlayerInventory->GetItems();
+	if (!Items.IsValidIndex(FromIndex)) return;
+
+	const FItemInfo& LocalItem = Items[FromIndex];
+	if (LocalItem.ItemType != EItemType::Armor || LocalItem.ArmorType != ArmorTypeSlot) return;
+
+	AItemMaster*& SlotRef = GetArmorSlotRefByType(ArmorTypeSlot);
+	if (IsValid(SlotRef))
+	{
+		// 已有装备
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World || !LocalItem.ItemClassRef) return;
+
+	FActorSpawnParameters SpawnParameters;
+	SpawnParameters.Owner = this;
+	SpawnParameters.Instigator = GetInstigator();
+	AItemMaster* NewArmor = World->SpawnActor<AItemMaster>(LocalItem.ItemClassRef, SpawnParameters);
+	if (!IsValid(NewArmor)) return;
+
+	NewArmor->SetOwner(this);
+	NewArmor->SetReplicates(true);
+
+	SlotRef = NewArmor;
+
+	NewArmor->AttachToComponent(Mesh3P, FAttachmentTransformRules::SnapToTargetIncludingScale, NAME_None);
+	if (AArmorMaster* ArmorMaster = GetArmorMaster(NewArmor))
+	{
+		ArmorMaster->MasterPoseEvent(this);
+	}
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		if (ASurvivalPlayerController* SurvivalPC = Cast<ASurvivalPlayerController>(PC))
+		{
+			if (AArmorMaster* AM = GetArmorMaster(NewArmor))
+			{
+				SurvivalPC->UpdateArmorUI(ArmorTypeSlot, AM->GetItemInfo());
+				PlayerInventory->RemoveItemAtIndex(FromIndex);
+			}
+		}
+	}
+}
+
+void ASurvivalCharacter::ServerDequipArmor_Implementation(const EArmorType& ArmorSlot)
+{
+	DequipArmor(ArmorSlot);
+}
+
+void ASurvivalCharacter::DequipArmor(const EArmorType& ArmorSlot)
+{
+	AItemMaster*& SlotRef = GetArmorSlotRefByType(ArmorSlot);
+	if (!IsValid(SlotRef)) return;
+	if (!SlotRef->GetClass()->ImplementsInterface(UArmorItemInterface::StaticClass()))
+		return;
+	AArmorMaster* ArmorRef = IArmorItemInterface::Execute_GetArmorRef(SlotRef);
+	if (!ArmorRef) return;
+	PlayerInventory->ServerAddItem(ArmorRef->GetItemInfo());
+	SlotRef->Destroy();
+	SlotRef = nullptr;
+	GetSurvivalController()->RemoveArmorUI(ArmorSlot);
+}
+
+void ASurvivalCharacter::PostComp(AItemMaster* Target)
+{
+	if (IsValid(Target))
+	{
+		Target->AttachToComponent(Mesh3P, FAttachmentTransformRules::SnapToTargetIncludingScale,"None");
+		if (AArmorMaster* ArmorMaster = GetArmorMaster(Target))
+		{
+			ArmorMaster->MasterPoseEvent(this);
+		}
+	}
+}
+
+void ASurvivalCharacter::ConsumeItem(const int32 Index, const EContainerType& Container)
+{
+	if (UItemContainer* ItemContainer = GetContainer(Container))
+	{
+		const int32 LocalItemID = ItemContainer->GetItems()[Index].ItemID;
 		if (ItemContainer->RemoveQuantity(Index, 1).first)
 		{
 			const FName RowName = FName(FString::FromInt(LocalItemID));
@@ -995,6 +1125,51 @@ void ASurvivalCharacter::HarvestItem(FResourceStructure Resource)
 	}
 }
 
+void ASurvivalCharacter::OnRep_HelmetSlots()
+{
+	PostComp(HelmetSlots);
+}
+
+void ASurvivalCharacter::OnRep_ChestSlots()
+{
+	PostComp(ChestSlots);
+}
+
+void ASurvivalCharacter::OnRep_PantsSlots()
+{
+	PostComp(PantsSlots);
+}
+
+void ASurvivalCharacter::OnRep_BootsSlots()
+{
+	PostComp(BootsSlots);
+}
+
+void ASurvivalCharacter::OnEquipArmor(const EContainerType& FromContainer, const int32 FromIndex,
+                                      const EArmorType& ArmorTypeSlot)
+{
+	if (HasAuthority())
+	{
+		EquipArmor(FromContainer, FromIndex, ArmorTypeSlot);
+	}
+	else
+	{
+		ServerEquipArmor(FromContainer, FromIndex, ArmorTypeSlot);
+	}
+}
+
+void ASurvivalCharacter::OnDequipArmor(const EArmorType& ArmorSlot)
+{
+	if (HasAuthority())
+	{
+		DequipArmor(ArmorSlot);
+	}
+	else
+	{
+		ServerDequipArmor(ArmorSlot);
+	}
+}
+
 void ASurvivalCharacter::HarvestGroundItem(AActor* Ref)
 {
 	if (Ref->GetClass()->ImplementsInterface(UGroundItemInterface::StaticClass()))
@@ -1008,9 +1183,8 @@ void ASurvivalCharacter::HarvestGroundItem(AActor* Ref)
 					RowName,
 					ContextString,
 					true);
-			
-			const float LocalHealth = GroundItem->GetHealth() - 15;
-			if (LocalHealth <= 0)
+
+			if (const float LocalHealth = GroundItem->GetHealth() - 15; LocalHealth <= 0)
 			{
 				if (Row)
 				{
@@ -1449,33 +1623,18 @@ void ASurvivalCharacter::OnMontageCompleted(UAnimMontage* Montage, bool bInterru
 	bIsHarvesting = false;
 }
 
-void ASurvivalCharacter::HandleSlotDrop(EContainerType FromContainer, EContainerType TargetContainer, int32 FromIndex, int32 DroppedIndex, EArmorType ArmorType)
+void ASurvivalCharacter::HandleSlotDrop(const EContainerType FromContainer, const EContainerType TargetContainer, const int32 FromIndex, const int32 DroppedIndex, EArmorType ArmorType)
 {
-	switch (TargetContainer)
+	if (FromContainer == EContainerType::PlayerArmor)
 	{
-	case EContainerType::PlayerInventory:
-		switch (FromContainer)
-		{
-	case EContainerType::PlayerInventory:
-		PlayerInventory->ServerOnSlotDrop(PlayerInventory, FromIndex, DroppedIndex);
-			break;
-	case EContainerType::PlayerHotbar:
-		PlayerInventory->ServerOnSlotDrop(PlayerHotBar, FromIndex, DroppedIndex);
-			break;
-		}
-		break;
+		OnDequipArmor(ArmorType);
+	}
+	else
+	{
+		UItemContainer* From = GetContainer(FromContainer);
+		UItemContainer* To = GetContainer(TargetContainer);
 
-	case EContainerType::PlayerHotbar:
-		switch (FromContainer)
-		{
-	case EContainerType::PlayerInventory:
-		PlayerHotBar->ServerOnSlotDrop(PlayerInventory, FromIndex, DroppedIndex);
-			break;
-	case EContainerType::PlayerHotbar:
-		PlayerHotBar->ServerOnSlotDrop(PlayerHotBar, FromIndex, DroppedIndex);
-			break;
-		}
-		break;
+		To->ServerOnSlotDrop(From, FromIndex, DroppedIndex);
 	}
 }
 
@@ -1754,6 +1913,8 @@ void ASurvivalCharacter::AddExperience(const int32 Experience)
 
 	PlayerStats.CurrentXP += Experience;
 
+	int32 CurrentLevel = PlayerStats.CurrentLevel;
+
 	bool bLevelUp = false;
 	while (PlayerStats.CurrentLevel < 20 &&
 		PlayerStats.CurrentXP >= GetExperienceLevel(PlayerStats.CurrentLevel))
@@ -1765,18 +1926,28 @@ void ASurvivalCharacter::AddExperience(const int32 Experience)
 		PlayerStats.CurrentXP -= RequiredExp;
 	}
 
+	const int32 SkillPoints = PlayerStats.CurrentLevel - CurrentLevel;
+	PlayerStats.SkillPoints += SkillPoints;
+
 	if (PlayerStats.CurrentLevel >= 20)
 	{
 		const int32 MaxExp = GetExperienceLevel(20);
 		PlayerStats.CurrentXP = FMath::Min(PlayerStats.CurrentXP, MaxExp);
 	}
-
-	if (bLevelUp || Experience > 0)
+	
+	if (ASurvivalPlayerController* SurvivalPC = GetSurvivalController())
 	{
-		if (ASurvivalPlayerController* SurvivalPC = GetSurvivalController())
+		if (Experience > 0)
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Cyan, "UpdateExperienceUI");
-			SurvivalPC->UpdateExperienceUI(PlayerStats.CurrentXP, GetExperienceLevel(PlayerStats.CurrentLevel), PlayerStats.CurrentLevel);
+			SurvivalPC->UpdateExperienceUI(PlayerStats.CurrentXP, GetExperienceLevel(PlayerStats.CurrentLevel));
+			SurvivalPC->ExperienceNotify(Experience);
+		}
+
+		if (bLevelUp)
+		{
+			SurvivalPC->LevelUpNotify(PlayerStats.CurrentLevel);
+			SurvivalPC->UpdateLevelUp(PlayerStats.CurrentLevel);
+			SurvivalPC->UpdateSkillPoints(PlayerStats.SkillPoints);
 		}
 	}
 }
@@ -1787,7 +1958,7 @@ void ASurvivalCharacter::ServerAddExperience_Implementation(const int32 Experien
 }
 
 
-void ASurvivalCharacter::OnAddExperience(int32 Experience)
+void ASurvivalCharacter::OnAddExperience(const int32 Experience)
 {
 	if (HasAuthority())
 	{
@@ -1796,6 +1967,55 @@ void ASurvivalCharacter::OnAddExperience(int32 Experience)
 	else
 	{
 		ServerAddExperience(Experience);
+	}
+}
+
+void ASurvivalCharacter::ServerApplySkillPoints_Implementation(const EStatEnum& Stat)
+{
+	ApplySkillPoints(Stat);
+}
+
+
+void ASurvivalCharacter::ApplySkillPoints(const EStatEnum& Stat)
+{
+	if (PlayerStats.SkillPoints <= 0) return;
+	float CurrentStat = 0.f;
+	float MaxStat = 0.f;
+	switch (Stat)
+	{
+	case EStatEnum::Health:
+		PlayerStats.MaxHealth += 100.f;
+		CurrentStat = PlayerStats.CurrentHealth;
+		MaxStat = PlayerStats.MaxHealth;
+		break;
+	case EStatEnum::Food:
+		PlayerStats.MaxFood += 100.f;
+		CurrentStat = PlayerStats.CurrentFood;
+		MaxStat = PlayerStats.MaxFood;
+		break;
+	case EStatEnum::Water:
+		PlayerStats.MaxWater += 100.f;
+		CurrentStat = PlayerStats.CurrentWater;
+		MaxStat = PlayerStats.MaxWater;
+		break;
+	case EStatEnum::Stamina:
+		PlayerStats.MaxStamina += 100.f;
+		CurrentStat = PlayerStats.CurrentStamina;
+		MaxStat = PlayerStats.MaxStamina;
+		break;
+	default:
+		break;
+	}
+	PlayerStats.SkillPoints -= 1;
+	if (ASurvivalPlayerController* SurvivalPC = GetSurvivalController())
+	{
+		SurvivalPC->UpdateStatBar(Stat, CurrentStat, MaxStat);
+		SurvivalPC->UpdateSkillPoints(PlayerStats.SkillPoints);
+
+		if (PlayerStats.SkillPoints <= 0)
+		{
+			SurvivalPC->RemoveLevelNotify();
+		}
 	}
 }
 

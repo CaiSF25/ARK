@@ -13,6 +13,7 @@
 #include "Sound/SoundCue.h"
 #include "SurvivalCharacter.generated.h"
 
+class AArmorMaster;
 struct FResourceStructure;
 enum class ECraftingType : uint8;
 class UInputComponent;
@@ -43,6 +44,9 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:
+	// 组件
+	USkeletalMeshComponent* GetMesh3P() const { return Mesh3P; }
+	
 	// 库存系统
 	void OnSlotDrop(
 		EContainerType FromContainer,
@@ -67,21 +71,22 @@ public:
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="Input")
 	int32 HorbarIndex;
 
-	// 武器系统
-	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="Input")
+	// ------------------------------------------   装备系统   ------------------------------------------
+	// 武器
+	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="Weapon")
 	AActor* ThirdPersonEquippedItem;
 
-	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="Input")
+	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="Weapon")
 	int32 EquippedIndex;
 
-	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="Input")
+	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="Weapon")
 	AActor* FirstPersonEquippedItem;
 
 	UFUNCTION(Client, Reliable, BlueprintCallable)
 	void SpawnEquipableFirstPerson(TSubclassOf<AActor> Class, FName SocketName);
 
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastWeaponEquip(AActor* Target, FName SocketName, const EEquipableState& EquippedState);
+	void MulticastWeaponEquip(AActor* Target, const FName& SocketName, const EEquipableState& EquippedState);
 	
 	UFUNCTION(NetMulticast, Reliable)
 	void DequipThirdPerson();
@@ -95,12 +100,47 @@ public:
 	UFUNCTION(Client, Reliable, BlueprintCallable)
 	void ClientMontage(UAnimMontage* FirstPersonMontage);
 
+	// 护甲
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Armor")
+	TMap<EArmorType, AItemMaster*> ArmorSlots;
+
+	UPROPERTY(ReplicatedUsing=OnRep_HelmetSlots)
+	AItemMaster* HelmetSlots;
+
+	UFUNCTION()
+	void OnRep_HelmetSlots();
+
+	UPROPERTY(ReplicatedUsing=OnRep_ChestSlots)
+	AItemMaster* ChestSlots;
+
+	UFUNCTION()
+	void OnRep_ChestSlots();
+
+	UPROPERTY(ReplicatedUsing=OnRep_PantsSlots)
+	AItemMaster* PantsSlots;
+
+	UFUNCTION()
+	void OnRep_PantsSlots();
+
+	UPROPERTY(ReplicatedUsing=OnRep_BootsSlots)
+	AItemMaster* BootsSlots;
+
+	UFUNCTION()
+	void OnRep_BootsSlots();
+	
+	void OnEquipArmor(const EContainerType& FromContainer, int32 FromIndex, const EArmorType& ArmorTypeSlot);
+
+	void OnDequipArmor(const EArmorType& ArmorSlot);
+	
 	// 采集系统
 	void HarvestGroundItem(AActor* Ref);
 
 	// 制造系统
 	void OnCheckIfCanCraftItem(int32 ID, const EContainerType& Container, const ECraftingType& TableType);
 
+	// 玩家经验与升级
+	void OnApplySkillPoints(const EStatEnum& Stat);
+	
 private:
 	// 组件
 	UPROPERTY(VisibleDefaultsOnly, Category=Mesh)
@@ -210,7 +250,9 @@ private:
 						 AActor* DamageCauser);
 	
 	// 辅助函数
-	ASurvivalPlayerController* ASurvivalCharacter::GetSurvivalController() const;
+	ASurvivalPlayerController* GetSurvivalController() const;
+
+	static AArmorMaster* GetArmorMaster(AItemMaster* ItemMaster);
 
 	UDataTable* GetRecipeDataTable(const ECraftingType& TableType) const;
 	
@@ -231,7 +273,7 @@ private:
 	void SpawnEquipableThirdPerson(TSubclassOf<AActor> Class, FItemInfo ItemInfo, int32 LocalEquippedIndex);
 	
 	// 入口函数
-	void Hotbar(int32 Index);
+	void Hotbar(const int32 Index);
 
 	// 角色动作
 	UFUNCTION(Server, Reliable)
@@ -270,10 +312,10 @@ private:
 	void UseHotbarFunction(int32 Index);
 
 	UFUNCTION(Server, Reliable)
-	void ServerHotbar(int32 Index);
+	void ServerHotbar(const int32 Index);
 
 	// 装备武器
-	void DequipCurItem(int32 Index);
+	void DequipCurItem(const int32 Index);
 
 	UFUNCTION(Server, Reliable)
 	void ServerDequipCurItem(int32 Index);
@@ -281,8 +323,23 @@ private:
 	UFUNCTION(Server, Reliable)
 	void ServerSpawnEquipableThirdPerson(TSubclassOf<AActor> Class, FItemInfo ItemInfo, int32 LocalEquippedIndex);
 
+	// 装备护甲
+	AItemMaster*& GetArmorSlotRefByType(EArmorType Type);
+	
+	UFUNCTION(Server, Reliable)
+	void ServerEquipArmor(const EContainerType& FromContainer, const int32 FromIndex, const EArmorType& ArmorTypeSlot);
+
+	void EquipArmor(const EContainerType& FromContainer, const int32 FromIndex, const EArmorType& ArmorTypeSlot);
+
+	UFUNCTION(Server, Reliable)
+	void ServerDequipArmor(const EArmorType& ArmorSlot);
+
+	void DequipArmor(const EArmorType& ArmorSlot);
+	
+	void PostComp(AItemMaster* Target);
+	
 	// 使用消耗品(立即生效）
-	void ConsumeItem(int32 Index, EContainerType Container);
+	void ConsumeItem(int32 Index, const EContainerType& Container);
 
 	void UpdateStatInstant(EStatEnum StatToChange, float Amount);
 
@@ -477,6 +534,11 @@ private:
 	void ServerAddExperience(int32 Experience);
 
 	void OnAddExperience(int32 Experience);
+
+	UFUNCTION(Server, Reliable)
+	void ServerApplySkillPoints(const EStatEnum& Stat);
+
+	void ApplySkillPoints(const EStatEnum& Stat);
 
 public:
 	// 接口实现

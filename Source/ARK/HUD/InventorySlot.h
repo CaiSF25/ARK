@@ -29,6 +29,9 @@ protected:
 	virtual bool NativeOnDrop(const FGeometry& InGeometry, const FDragDropEvent& InDragDropEvent, UDragDropOperation* InOperation) override;
 
 public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn))
+	EContainerType ContainerType;
+	
 	UFUNCTION(BlueprintCallable)
 	void UpdateSlot(const FItemInfo& LocalItemInfo);
 
@@ -39,7 +42,15 @@ public:
 	void SetItemIndex(const int32 LocalItemIndex){ ItemIndex = LocalItemIndex; }
 
 	UFUNCTION(BlueprintCallable)
-	void SetContainerType(EContainerType LocalContainerType) { ContainerType = LocalContainerType; }
+	void SetContainerType(const EContainerType LocalContainerType) { ContainerType = LocalContainerType; }
+
+	UFUNCTION(BlueprintCallable)
+	void SetBackgroundImage(UTexture2D* InBackgroundImage);
+
+	// 护甲
+	UFUNCTION(BlueprintCallable)
+	void SetArmorType(const EArmorType& InArmorType);
+	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (BindWidget))
 	UBorder* ItemIcon;
@@ -55,6 +66,18 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (BindWidget))
 	UTextBlock* QuantityText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (BindWidget))
+	UBorder* SlotStyle;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ExposeOnSpawn))
+	UTexture2D* BackgroundImage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ExposeOnSpawn))
+	bool bArmorSlot = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ExposeOnSpawn))
+	EArmorType ArmorType;
 	
 private:
 	bool HasItemInSlot = false;
@@ -62,8 +85,6 @@ private:
 	FItemInfo ItemInfo;
 
 	int32 ItemIndex;
-
-	EContainerType ContainerType;
 
 public:
 	UPROPERTY(EditAnywhere, Category="Drag")

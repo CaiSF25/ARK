@@ -33,7 +33,6 @@ enum class EArmorType : uint8
 {
 	Helmet        UMETA(DisplayName = "Helmet"),
 	Chest         UMETA(DisplayName = "Chest"),
-	Arm           UMETA(DisplayName = "Arm"),
 	Pants         UMETA(DisplayName = "Pants"),
 	Boots         UMETA(DisplayName = "Boots"),
 	None		  UMETA(DisplayName = "None"),

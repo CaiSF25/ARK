@@ -27,6 +27,9 @@ public:
 
 	UFUNCTION()
 	void UpdateStatWidget(const float Current, const float Max) const;
+
+	UFUNCTION()
+	void OnLevelStatButtonClicked();
 	
 private:
 	UPROPERTY(meta = (BindWidget))

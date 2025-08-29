@@ -61,8 +61,31 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ShowOrHideDehydrated(bool bShowOrHide);
 
+	// 玩家经验和等级
 	UFUNCTION(Client, Reliable)
-	void UpdateExperienceUI(int32 CurrentExp, int32 MaxExp, const int32 Level);
+	void UpdateExperienceUI(int32 CurrentExp, int32 MaxExp);
+
+	UFUNCTION(Client, Reliable)
+	void ExperienceNotify(int32 Experience);
+
+	UFUNCTION(Client, Reliable)
+	void LevelUpNotify(int32 Level);
+
+	UFUNCTION(Client, Reliable)
+	void UpdateLevelUp(const int32 Level);
+
+	UFUNCTION(Client, Reliable)
+	void UpdateSkillPoints(const int32 SkillPoints);
+
+	UFUNCTION(Client, Reliable)
+	void RemoveLevelNotify();
+
+	// 护甲
+	UFUNCTION(Client, Reliable)
+	void UpdateArmorUI(const EArmorType& ArmorType, const FItemInfo& ItemInfo);
+
+	UFUNCTION(Client, Reliable)
+	void RemoveArmorUI(const EArmorType& ArmorType);
 	
 	// 接口实现
 	virtual AController* SurvivalGamePCRef_Implementation() override;

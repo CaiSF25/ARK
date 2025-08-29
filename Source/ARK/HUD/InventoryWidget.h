@@ -40,6 +40,11 @@ public:
 
 	UFUNCTION()
 	void UpdateLevelText(int32 Level) const;
+
+	// 护甲
+	void UpdateArmorSlot(const EArmorType& ArmorType, const FItemInfo& ItemInfo);
+
+	void RemoveArmorSlot(const EArmorType& ArmorType);
 	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(BindWidget))
@@ -63,4 +68,18 @@ private:
 
 	UPROPERTY(meta=(BindWidget))
 	UTextBlock* PlayerLevelText;
+
+	UPROPERTY(meta=(BindWidget))
+	UInventorySlot* HelmetSlot;
+
+	UPROPERTY(meta=(BindWidget))
+	UInventorySlot* ChestSlot;
+
+	UPROPERTY(meta=(BindWidget))
+	UInventorySlot* PantsSlot;
+
+	UPROPERTY(meta=(BindWidget))
+	UInventorySlot* BootsSlot;
+
+	UInventorySlot*& GetArmorSlotRef(const EArmorType& ArmorType);
 };

@@ -22,6 +22,9 @@ public:
 	void UpdateStat(const EStatEnum& StatToUpdate, const float Current, const float Max) const;
 
 	void UpdateExperience(int32 CurrentExperience, int32 MaxExperience) const;
+
+	void UpdateSkillPoints(int32 SkillPoints) const;
+	
 private:
 	UPROPERTY(meta = (BindWidget))
 	UPlayerStat* HealthPlayerStat;
@@ -40,5 +43,8 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* ExperienceText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* SkillPointsText;
 	
 };

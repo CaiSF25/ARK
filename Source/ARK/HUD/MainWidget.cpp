@@ -6,6 +6,8 @@
 #include "InventoryWidget.h"
 #include "ItemAdded.h"
 #include "CraftingProgressBar.h"
+#include "ExperienceText.h"
+#include "LevelNotification.h"
 #include "StateNotifycationWidget.h"
 #include "ARK/Character/SurvivalPlayerController.h"
 #include "Components/VerticalBox.h"
@@ -79,7 +81,7 @@ void UMainWidget::ShowDehydratedNotification()
 	}
 }
 
-void UMainWidget::RemoveStarvingNotification()
+void UMainWidget::RemoveStarvingNotification() const
 {
 	if (IsValid(StarvingWidget))
 	{
@@ -87,11 +89,45 @@ void UMainWidget::RemoveStarvingNotification()
 	}
 }
 
-void UMainWidget::RemoveDehydratedNotification()
+void UMainWidget::RemoveDehydratedNotification() const
 {
 	if (IsValid(DehydratedWidget))
 	{
 		DehydratedWidget->RemoveFromParent();
+	}
+}
+
+void UMainWidget::AddExperienceNotification(const int32 ExperienceAmount)
+{
+	if (!ExperienceTextClass) return;
+	ExperienceText = CreateWidget<UExperienceText>(GetWorld(), ExperienceTextClass);
+	if (ExperienceText)
+	{
+		ExperienceText->SetExperience(ExperienceAmount);
+		NotificationBox->AddChild(ExperienceText);
+	}
+}
+
+void UMainWidget::ShowLevelUpNotification(const int32 NewLevel)
+{
+	if (!LevelNotificationClass) return;
+	if (IsValid(LevelNotification))
+	{
+		LevelNotification->RemoveFromParent();
+	}
+	LevelNotification = CreateWidget<ULevelNotification>(GetWorld(), LevelNotificationClass);
+	if (LevelNotification)
+	{
+		LevelNotification->SetPlayerLevel(NewLevel);
+		NotificationBox->AddChild(LevelNotification);
+	}
+}
+
+void UMainWidget::RemoveLevelUpNotification() const
+{
+	if (IsValid(LevelNotification))
+	{
+		LevelNotification->RemoveFromParent();
 	}
 }
 

@@ -34,3 +34,27 @@ void UInventoryWidget::UpdateLevelText(const int32 Level) const
 {
 	PlayerLevelText->SetText(FText::AsNumber(Level));
 }
+
+void UInventoryWidget::UpdateArmorSlot(const EArmorType& ArmorType, const FItemInfo& ItemInfo)
+{
+	UInventorySlot*& ArmorSlot = GetArmorSlotRef(ArmorType);
+	ArmorSlot->UpdateSlot(ItemInfo);
+}
+
+void UInventoryWidget::RemoveArmorSlot(const EArmorType& ArmorType)
+{
+	UInventorySlot*& ArmorSlot = GetArmorSlotRef(ArmorType);
+	ArmorSlot->ResetSlot();
+}
+
+UInventorySlot*& UInventoryWidget::GetArmorSlotRef(const EArmorType& ArmorType)
+{
+	switch (ArmorType)
+	{
+	case EArmorType::Helmet: return HelmetSlot;
+	case EArmorType::Chest:  return ChestSlot;
+	case EArmorType::Pants:  return PantsSlot;
+	case EArmorType::Boots:  return BootsSlot;
+	default:                 return HelmetSlot;
+	}
+}

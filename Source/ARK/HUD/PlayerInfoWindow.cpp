@@ -45,6 +45,17 @@ void UPlayerInfoWindow::UpdateExperience(int32 CurrentExperience, int32 MaxExper
 
 	if (ExperienceText)
 	{
-		ExperienceText->SetText(FText::FromString(FString::Printf(TEXT("%d/%d"), CurrentExperience, MaxExperience)));
+		ExperienceText->SetText(FText::FromString(FString::Printf(TEXT("XP.%d/%d"), CurrentExperience, MaxExperience)));
+	}
+}
+
+void UPlayerInfoWindow::UpdateSkillPoints(const int32 SkillPoints) const
+{
+	if (IsValid(SkillPointsText))
+	{
+		SkillPointsText->SetText(FText::Format(
+			NSLOCTEXT("SkillPoints", "SkillPointsFmt", "Skill Points: {0}"),
+			FText::AsNumber(SkillPoints)
+		));
 	}
 }

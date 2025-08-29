@@ -5,6 +5,7 @@
 #include "Input/Reply.h"
 #include "ItemDrag.h"
 #include "ARK/Character/SurvivalCharacter.h"
+#include "ARK/Structures/ItemInfo.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -17,6 +18,11 @@ void UInventorySlot::NativeConstruct()
 	ButtonText->SetVisibility(ESlateVisibility::Hidden);
 	ItemHP->SetVisibility(ESlateVisibility::Hidden);
 	QuantityText->SetVisibility(ESlateVisibility::Hidden);
+
+	if (IsValid(SlotStyle))
+	{
+		SlotStyle->SetBrushFromTexture(BackgroundImage);
+	}
 }
 
 FReply UInventorySlot::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
@@ -80,24 +86,63 @@ void UInventorySlot::NativeOnDragDetected(const FGeometry& InGeometry, const FPo
 bool UInventorySlot::NativeOnDrop(const FGeometry& InGeometry, const FDragDropEvent& InDragDropEvent,
 	UDragDropOperation* InOperation)
 {
-	if (const UItemDrag* ItemDrag = Cast<UItemDrag>(InOperation))
+	const UItemDrag* ItemDrag = Cast<UItemDrag>(InOperation);
+	if (!ItemDrag)
 	{
-		const int32 LocalSlotIndex = ItemDrag->SlotIndex;
-		const EContainerType LocalContainerType = ItemDrag->FromContainer;
-		const EArmorType ArmorType = ItemDrag->ArmorType;
-		
-		if (ACharacter* BaseCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0))
+		return Super::NativeOnDrop(InGeometry, InDragDropEvent, InOperation);
+	}
+	
+	const int32 LocalSlotIndex = ItemDrag->SlotIndex;
+	const EContainerType LocalContainerType = ItemDrag->FromContainer;
+	const EArmorType LocalArmorType = ItemDrag->ArmorType;
+
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[%s] NativeOnDrop: GetWorld() == nullptr"), *GetName());
+		return Super::NativeOnDrop(InGeometry, InDragDropEvent, InOperation);
+	}
+
+	ACharacter* PlayerChar = UGameplayStatics::GetPlayerCharacter(World, 0);
+	if (!PlayerChar)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[%s] NativeOnDrop: PlayerCharacter == nullptr"), *GetName());
+		return Super::NativeOnDrop(InGeometry, InDragDropEvent, InOperation);
+	}
+
+	if (!PlayerChar->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
+	{
+		UE_LOG(LogTemp, Verbose, TEXT("[%s] NativeOnDrop: Player does not implement SurvivalCharacterInterface"), *GetName());
+		return Super::NativeOnDrop(InGeometry, InDragDropEvent, InOperation);
+	}
+
+	ASurvivalCharacter* SurvivalCharacter = Cast<ASurvivalCharacter>(ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(PlayerChar));
+	if (!SurvivalCharacter)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[%s] NativeOnDrop: Could not resolve ASurvivalCharacter ref"), *GetName());
+		return Super::NativeOnDrop(InGeometry, InDragDropEvent, InOperation);
+	}
+
+	if (LocalContainerType == ContainerType && LocalSlotIndex == ItemIndex)
+	{
+		// same slot, ignore
+		return true; // 已处理（不需要其他处理）
+	}
+
+	if (bArmorSlot && ItemDrag->ItemType == EItemType::Armor)
+	{
+		if (ItemDrag->ArmorType == this->ArmorType)
 		{
-			if (BaseCharacter->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
-			{
-				if (ASurvivalCharacter* SurvivalCharacter = Cast<ASurvivalCharacter>(ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(BaseCharacter)))
-				{
-					SurvivalCharacter->OnSlotDrop(LocalContainerType, ContainerType, LocalSlotIndex, ItemIndex, ArmorType);
-					return true;
-				}
-			}
+			SurvivalCharacter->OnEquipArmor(LocalContainerType, LocalSlotIndex, LocalArmorType);
+			return true;
 		}
 	}
+	else
+	{
+		SurvivalCharacter->OnSlotDrop(LocalContainerType, ContainerType, LocalSlotIndex, ItemIndex, LocalArmorType);
+		return true;
+	}
+	
 	return Super::NativeOnDrop(InGeometry, InDragDropEvent, InOperation);
 }
 
@@ -111,7 +156,7 @@ void UInventorySlot::UpdateSlot(const FItemInfo& LocalItemInfo)
 	ItemIcon->SetBrushFromTexture(ItemInfo.ItemIcon);
 	ItemIcon->SetVisibility(ESlateVisibility::Visible);
 
-	FText FormattedText = FText::Format(
+	const FText FormattedText = FText::Format(
 		FText::FromString("x{0}"),
 		ItemInfo.ItemQuantity
 		);
@@ -128,4 +173,19 @@ void UInventorySlot::ResetSlot()
 	TopText->SetVisibility(ESlateVisibility::Hidden);
 
 	HasItemInSlot = false;
+}
+
+void UInventorySlot::SetBackgroundImage(UTexture2D* InBackgroundImage)
+{
+	BackgroundImage = InBackgroundImage;
+
+	if (IsValid(SlotStyle))
+	{
+		SlotStyle->SetBrushFromTexture(BackgroundImage);
+	}
+}
+
+void UInventorySlot::SetArmorType(const EArmorType& InArmorType)
+{
+	ArmorType = InArmorType;
 }
