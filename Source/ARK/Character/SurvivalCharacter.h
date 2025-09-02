@@ -13,6 +13,7 @@
 #include "Sound/SoundCue.h"
 #include "SurvivalCharacter.generated.h"
 
+class APlayerWindow;
 class AArmorMaster;
 struct FResourceStructure;
 enum class ECraftingType : uint8;
@@ -60,21 +61,30 @@ public:
 
 	void OnDequipCurItem(int32 Index);
 
-	void OnSpawnEquipableThirdPerson(TSubclassOf<AActor> Class, FItemInfo ItemInfo, int32 LocalEquippedIndex);
+	void OnSpawnEquipableThirdPerson(TSubclassOf<AActor> Class, const FItemInfo& ItemInfo, int32 LocalEquippedIndex);
 
 	// 制造系统
 	void OnCraftItem(int32 ItemID, EContainerType Container, ECraftingType TableType);
-	
-	UPROPERTY(Replicated, EditAnywhere,BlueprintReadWrite, Category="Input")
-	EEquipableState EquipableState = EEquipableState::Default;
 
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="Input")
 	int32 HorbarIndex;
 
 	// ------------------------------------------   装备系统   ------------------------------------------
 	// 武器
-	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="Weapon")
+	UPROPERTY(ReplicatedUsing=OnRep_EquipableState, EditAnywhere,BlueprintReadWrite, Category="Input")
+	EEquipableState EquipableState = EEquipableState::Default;
+
+	UFUNCTION()
+	void OnRep_EquipableState();
+	
+	UPROPERTY(ReplicatedUsing=OnRep_EquippedWeapon, EditAnywhere,BlueprintReadWrite, Category="Weapon")
 	AActor* ThirdPersonEquippedItem;
+
+	UFUNCTION()
+	void OnRep_EquippedWeapon();
+
+	UPROPERTY(Replicated)
+	FName ReplicatedEquipSocketName;
 
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="Weapon")
 	int32 EquippedIndex;
@@ -83,7 +93,7 @@ public:
 	AActor* FirstPersonEquippedItem;
 
 	UFUNCTION(Client, Reliable, BlueprintCallable)
-	void SpawnEquipableFirstPerson(TSubclassOf<AActor> Class, FName SocketName);
+	void ClientSpawnEquipableFirstPerson(TSubclassOf<AActor> Class, FName SocketName);
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastWeaponEquip(AActor* Target, const FName& SocketName, const EEquipableState& EquippedState);
@@ -100,6 +110,9 @@ public:
 	UFUNCTION(Client, Reliable, BlueprintCallable)
 	void ClientMontage(UAnimMontage* FirstPersonMontage);
 
+	UFUNCTION(Client, Reliable)
+	void ClientEquipItem(const FEquipableInfo& Info);
+	
 	// 护甲
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Armor")
 	TMap<EArmorType, AItemMaster*> ArmorSlots;
@@ -261,6 +274,8 @@ private:
 	float GetStateToUpdate(const EStatEnum& State);
 
 	float GetMaxState(const EStatEnum& State);
+
+	APlayerWindow* GetPlayerWindow() const;
 	
 	UFUNCTION()
 	void ApplyDamageToPlayer(float Damage, AActor* DamageCauser);
@@ -337,6 +352,25 @@ private:
 	void DequipArmor(const EArmorType& ArmorSlot);
 	
 	void PostComp(AItemMaster* Target);
+
+	bool bSetupSceneRenderDoOnce = false;
+	
+	UFUNCTION(Client, Reliable)
+	void SetupSceneRender();
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Armor", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<APlayerWindow> PlayerWindowClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Armor", meta = (AllowPrivateAccess = "true"))
+	APlayerWindow* PlayerWindow;
+
+	FTimerHandle SetupSceneRenderTimer;
+
+	UFUNCTION(Client, Reliable)
+	void ClientEquipArmor(const FItemInfo& ItemInfo);
+
+	UFUNCTION(Client, Reliable)
+	void ClientDequipArmor(const EArmorType& ArmorType);
 	
 	// 使用消耗品(立即生效）
 	void ConsumeItem(int32 Index, const EContainerType& Container);

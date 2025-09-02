@@ -86,6 +86,9 @@ public:
 
 	UFUNCTION(Client, Reliable)
 	void RemoveArmorUI(const EArmorType& ArmorType);
+
+	UFUNCTION(Client, Reliable)
+	void SetRenderMaterial(UMaterialInterface* Mat);
 	
 	// 接口实现
 	virtual AController* SurvivalGamePCRef_Implementation() override;

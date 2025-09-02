@@ -45,6 +45,8 @@ public:
 	void UpdateArmorSlot(const EArmorType& ArmorType, const FItemInfo& ItemInfo);
 
 	void RemoveArmorSlot(const EArmorType& ArmorType);
+
+	void SetPlayerTexture(UMaterialInterface* Mat) const;
 	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(BindWidget))
@@ -80,6 +82,9 @@ private:
 
 	UPROPERTY(meta=(BindWidget))
 	UInventorySlot* BootsSlot;
+
+	UPROPERTY(meta=(BindWidget))
+	UImage* PlayerImage;
 
 	UInventorySlot*& GetArmorSlotRef(const EArmorType& ArmorType);
 };

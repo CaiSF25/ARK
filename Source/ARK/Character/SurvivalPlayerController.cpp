@@ -158,6 +158,11 @@ void ASurvivalPlayerController::RemoveArmorUI_Implementation(const EArmorType& A
 	MainWidget->GetInventoryWidget()->RemoveArmorSlot(ArmorType);
 }
 
+void ASurvivalPlayerController::SetRenderMaterial_Implementation(UMaterialInterface* Mat)
+{
+	MainWidget->GetInventoryWidget()->SetPlayerTexture(Mat);
+}
+
 AController* ASurvivalPlayerController::SurvivalGamePCRef_Implementation()
 {
 	return this;

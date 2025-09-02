@@ -3,6 +3,7 @@
 
 #include "InventoryWidget.h"
 
+#include "Components/Image.h"
 #include "Components/WidgetSwitcher.h"
 
 void UInventoryWidget::NativeConstruct()
@@ -45,6 +46,11 @@ void UInventoryWidget::RemoveArmorSlot(const EArmorType& ArmorType)
 {
 	UInventorySlot*& ArmorSlot = GetArmorSlotRef(ArmorType);
 	ArmorSlot->ResetSlot();
+}
+
+void UInventoryWidget::SetPlayerTexture(UMaterialInterface* Mat) const
+{
+	PlayerImage->SetBrushFromMaterial(Mat);
 }
 
 UInventorySlot*& UInventoryWidget::GetArmorSlotRef(const EArmorType& ArmorType)

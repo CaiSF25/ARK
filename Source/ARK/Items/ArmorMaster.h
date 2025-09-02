@@ -30,6 +30,8 @@ public:
 
 	FItemInfo GetItemInfo() const { return ItemInfo; }
 
+	USkeletalMeshComponent* GetSkeletalMeshComponent() const { return SkeletalMesh; }
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Component")
 	USkeletalMeshComponent* SkeletalMesh;

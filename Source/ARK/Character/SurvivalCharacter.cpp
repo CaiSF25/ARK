@@ -10,6 +10,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "SurvivalPlayerController.h"
+#include "ARK/PlayerWindow/PlayerWindow.h"
 #include "ARK/HarvestingSystem/DestructableHarvestable.h"
 #include "ARK/HarvestingSystem/GroundItemMaster.h"
 #include "ARK/Interfaces/ArmorItemInterface.h"
@@ -102,6 +103,16 @@ void ASurvivalCharacter::BeginPlay()
 	{
 		OnTakeAnyDamage.AddDynamic(this, &ASurvivalCharacter::HandleAnyDamage);
 	}
+	if (Controller && Controller->IsLocalController() && !IsRunningDedicatedServer())
+	{
+		GetWorld()->GetTimerManager().SetTimer(
+			SetupSceneRenderTimer,
+			this,
+			&ASurvivalCharacter::SetupSceneRender,
+			0.5f,
+			false
+			);
+	}
 
 	OnDecreaseStatsOverTime();
 }
@@ -144,6 +155,7 @@ void ASurvivalCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProper
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ASurvivalCharacter, EquipableState);
+	DOREPLIFETIME(ASurvivalCharacter, ThirdPersonEquippedItem);
 	DOREPLIFETIME(ASurvivalCharacter, StaminaState);
 	DOREPLIFETIME(ASurvivalCharacter, bIsStarving);
 	DOREPLIFETIME(ASurvivalCharacter, bIsDehydrated);
@@ -321,8 +333,8 @@ void ASurvivalCharacter::OnDequipCurItem(int32 Index)
 	}
 }
 
-void ASurvivalCharacter::OnSpawnEquipableThirdPerson(TSubclassOf<AActor> Class, FItemInfo ItemInfo,
-	int32 LocalEquippedIndex)
+void ASurvivalCharacter::OnSpawnEquipableThirdPerson(const TSubclassOf<AActor> Class, const FItemInfo& ItemInfo,
+	const int32 LocalEquippedIndex)
 {
 	if (HasAuthority())
 	{
@@ -334,20 +346,37 @@ void ASurvivalCharacter::OnSpawnEquipableThirdPerson(TSubclassOf<AActor> Class, 
 	}
 }
 
-void ASurvivalCharacter::SpawnEquipableThirdPerson(TSubclassOf<AActor> Class, FItemInfo ItemInfo,
-                                                   int32 LocalEquippedIndex)
+void ASurvivalCharacter::SpawnEquipableThirdPerson(const TSubclassOf<AActor> Class, FItemInfo ItemInfo,
+                                                   const int32 LocalEquippedIndex)
 {
 	EquippedIndex = LocalEquippedIndex;
-	UWorld* World = GetWorld();
-	if (World)
+	if (UWorld* World = GetWorld())
 	{
-		ThirdPersonEquippedItem = World->SpawnActor(Class);
-		ThirdPersonEquippedItem->SetOwner(this);
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = this;
+		SpawnParams.Instigator = GetInstigator();
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+		AActor* Spawned = World->SpawnActor(Class, nullptr, nullptr, SpawnParams);
+		if (!IsValid(Spawned)) return;
+
+		Spawned->SetOwner(this);
+		Spawned->SetReplicates(true);
+		Spawned->SetReplicateMovement(true);
+
+		ThirdPersonEquippedItem = Spawned;
+		
 		if (ThirdPersonEquippedItem->GetClass()->ImplementsInterface(UEquipableItem::StaticClass()))
 		{
-			AEquipableMaster* EquipRef = IEquipableItem::Execute_GetEquipableRef(ThirdPersonEquippedItem);
-			MulticastWeaponEquip(ThirdPersonEquippedItem, EquipRef->EquipableInfo.SocketName, EquipRef->EquipableInfo.AnimationState);
-			SpawnEquipableFirstPerson(EquipRef->EquipableInfo.FirstPersonEquipClass, EquipRef->EquipableInfo.SocketName);
+			const AEquipableMaster* EquipRef = IEquipableItem::Execute_GetEquipableRef(ThirdPersonEquippedItem);
+			ReplicatedEquipSocketName = EquipRef->EquipableInfo.SocketName;
+
+			const FAttachmentTransformRules AttachRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
+			Spawned->AttachToComponent(Mesh3P, AttachRules, EquipRef->EquipableInfo.SocketName);
+
+			// MulticastWeaponEquip(ThirdPersonEquippedItem, EquipRef->EquipableInfo.SocketName, EquipRef->EquipableInfo.AnimationState);
+			ClientSpawnEquipableFirstPerson(EquipRef->EquipableInfo.FirstPersonEquipClass, EquipRef->EquipableInfo.SocketName);
+			ClientEquipItem(EquipRef->EquipableInfo);
 		}
 	}
 }
@@ -367,9 +396,7 @@ void ASurvivalCharacter::OverlapGroundItems()
 
 			const TArray<AActor*> ActorsToIgnore = { this };
 
-			TArray<AActor*> OutActors;
-	
-			if (UKismetSystemLibrary::SphereOverlapActors(
+			if (TArray<AActor*> OutActors; UKismetSystemLibrary::SphereOverlapActors(
 				this,
 				GetActorLocation(),
 				70.f,
@@ -466,28 +493,36 @@ std::tuple<FName, EContainerType, float, int32> ASurvivalCharacter::CraftItem(co
 	return { FName(), Container, 0, 0 };
 }
 
-
-void ASurvivalCharacter::SpawnEquipableFirstPerson_Implementation(TSubclassOf<AActor> Class, FName SocketName)
+void ASurvivalCharacter::ClientSpawnEquipableFirstPerson_Implementation(TSubclassOf<AActor> Class, FName SocketName)
 {
-	if (UWorld* World = GetWorld())
+	if (!IsLocallyControlled()) return;
+
+	if (IsValid(FirstPersonEquippedItem))
 	{
-		FirstPersonEquippedItem = World->SpawnActor(Class);
-		const FAttachmentTransformRules AttachmentRules(
-				EAttachmentRule::SnapToTarget,    // Location
-				EAttachmentRule::SnapToTarget,    // Rotation
-				EAttachmentRule::SnapToTarget,    // Scale
-				true                              // Weld simulated bodies?
-				);
-		FirstPersonEquippedItem->AttachToComponent(Mesh1P, AttachmentRules, SocketName);
+		FirstPersonEquippedItem->Destroy();
+		FirstPersonEquippedItem = nullptr;
 	}
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	SpawnParams.Instigator = GetInstigator();
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	AActor* SpawnedFP = GetWorld()->SpawnActor<AActor>(Class, FTransform::Identity, SpawnParams);
+	if (!IsValid(SpawnedFP)) return;
+
+	SpawnedFP->SetReplicates(false);
+
+	const FAttachmentTransformRules AttachRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
+	SpawnedFP->AttachToComponent(Mesh1P, AttachRules, SocketName);
+
+	FirstPersonEquippedItem = SpawnedFP;
 }
 
 
 void ASurvivalCharacter::UseHotbarFunction(int32 Index)
 {
 	HorbarIndex = Index;
-	const EItemType ItemType = PlayerHotBar->CheckHotbar(Index);
-	if (ItemType != EItemType::None)
+	if (const EItemType ItemType = PlayerHotBar->CheckHotbar(Index); ItemType != EItemType::None)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "UseHotbarFunction");
 		switch (ItemType)
@@ -505,7 +540,7 @@ void ASurvivalCharacter::UseHotbarFunction(int32 Index)
 			else
 			{
 				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Equip the item");
-				FItemInfo EquippedItemInfo = PlayerHotBar->GetItems()[HorbarIndex];
+				const FItemInfo EquippedItemInfo = PlayerHotBar->GetItems()[HorbarIndex];
 				OnSpawnEquipableThirdPerson(EquippedItemInfo.ItemClassRef, EquippedItemInfo, HorbarIndex);
 			}
 			break;
@@ -695,6 +730,18 @@ void ASurvivalCharacter::OnCraftItem(const int32 ItemID, const EContainerType Co
 	}
 }
 
+void ASurvivalCharacter::OnRep_EquipableState()
+{
+}
+
+void ASurvivalCharacter::OnRep_EquippedWeapon()
+{
+	if (!IsValid(ThirdPersonEquippedItem) && IsValid(Mesh3P))
+	{
+		const FAttachmentTransformRules AttachRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
+		ThirdPersonEquippedItem->AttachToComponent(Mesh3P, AttachRules, ReplicatedEquipSocketName);
+	}
+}
 
 void ASurvivalCharacter::ServerAttack_Implementation()
 {
@@ -710,30 +757,32 @@ void ASurvivalCharacter::ServerAttack_Implementation()
 void ASurvivalCharacter::MulticastWeaponEquip_Implementation(AActor* Target, const FName& SocketName,
                                                              const EEquipableState& EquippedState)
 {
-	if (IsValid(Target))
-	{
-		if (IsValid(Mesh3P))
-		{
-			const FAttachmentTransformRules AttachmentRules(
-				EAttachmentRule::SnapToTarget,    // Location
-				EAttachmentRule::SnapToTarget,    // Rotation
-				EAttachmentRule::SnapToTarget,    // Scale
-				true                              // Weld simulated bodies?
-				);
-			Target->AttachToComponent(Mesh3P, AttachmentRules, SocketName);
-			EquipableState = EquippedState;
-		}
-	}
+	if (!IsValid(Target)) return;
+	if (!IsValid(Mesh3P)) return;
+	const FAttachmentTransformRules AttachmentRules(
+			EAttachmentRule::SnapToTarget,    // Location
+			EAttachmentRule::SnapToTarget,    // Rotation
+			EAttachmentRule::SnapToTarget,    // Scale
+			true                              // Weld simulated bodies?
+			);
+	Target->AttachToComponent(Mesh3P, AttachmentRules, SocketName);
+	EquipableState = EquippedState;
 }
 
 void ASurvivalCharacter::DequipThirdPerson_Implementation()
 {
 	EquipableState = EEquipableState::Default;
+	ThirdPersonEquippedItem = nullptr;
 }
 
 void ASurvivalCharacter::DequipFirstPerson_Implementation()
 {
 	FirstPersonEquippedItem->Destroy();
+	FirstPersonEquippedItem = nullptr;
+	if (IsValid(PlayerWindow))
+	{
+		PlayerWindow->DequipItem();
+	}
 }
 
 void ASurvivalCharacter::DequipCurItem(const int32 Index)
@@ -782,6 +831,8 @@ void ASurvivalCharacter::EquipArmor(const EContainerType& FromContainer, const i
 
 	const FItemInfo& LocalItem = Items[FromIndex];
 	if (LocalItem.ItemType != EItemType::Armor || LocalItem.ArmorType != ArmorTypeSlot) return;
+
+	ClientEquipArmor(LocalItem);
 
 	AItemMaster*& SlotRef = GetArmorSlotRefByType(ArmorTypeSlot);
 	if (IsValid(SlotRef))
@@ -840,6 +891,7 @@ void ASurvivalCharacter::DequipArmor(const EArmorType& ArmorSlot)
 	SlotRef->Destroy();
 	SlotRef = nullptr;
 	GetSurvivalController()->RemoveArmorUI(ArmorSlot);
+	ClientDequipArmor(ArmorSlot);
 }
 
 void ASurvivalCharacter::PostComp(AItemMaster* Target)
@@ -852,6 +904,33 @@ void ASurvivalCharacter::PostComp(AItemMaster* Target)
 			ArmorMaster->MasterPoseEvent(this);
 		}
 	}
+}
+
+void ASurvivalCharacter::SetupSceneRender_Implementation()
+{
+	if (bSetupSceneRenderDoOnce) return;
+	bSetupSceneRenderDoOnce = true;
+	UWorld* World = GetWorld();
+	if (!World) return;
+	if (!PlayerWindowClass) return;
+
+	FActorSpawnParameters SpawnParams;
+	const FVector SpawnLocation = FVector(250.0f, 1090.0f, 9600.0f);
+	const FRotator SpawnRotation = FRotator(0.f, 0.f, 90.f);
+	const FVector SpawnScale = FVector(1.0f, 1.0f, 1.0f);
+	const FTransform SpawnTransform(SpawnRotation, SpawnLocation, SpawnScale);
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	PlayerWindow = World->SpawnActor<APlayerWindow>(PlayerWindowClass, SpawnTransform, SpawnParams);
+
+	if (!PlayerWindow) return;
+	ASurvivalPlayerController* SurvivalPC = GetSurvivalController();
+	if (!SurvivalPC) return;
+	PlayerWindow->InitialWindow(SurvivalPC);
+}
+
+void ASurvivalCharacter::ClientDequipArmor_Implementation(const EArmorType& ArmorType)
+{
+	GetPlayerWindow()->DequipArmor(ArmorType);
 }
 
 void ASurvivalCharacter::ConsumeItem(const int32 Index, const EContainerType& Container)
@@ -1125,6 +1204,11 @@ void ASurvivalCharacter::HarvestItem(FResourceStructure Resource)
 	}
 }
 
+void ASurvivalCharacter::ClientEquipItem_Implementation(const FEquipableInfo& Info)
+{
+	GetPlayerWindow()->EquipItem(Info);
+}
+
 void ASurvivalCharacter::OnRep_HelmetSlots()
 {
 	PostComp(HelmetSlots);
@@ -1169,6 +1253,12 @@ void ASurvivalCharacter::OnDequipArmor(const EArmorType& ArmorSlot)
 		ServerDequipArmor(ArmorSlot);
 	}
 }
+
+void ASurvivalCharacter::ClientEquipArmor_Implementation(const FItemInfo& ItemInfo)
+{
+	GetPlayerWindow()->EquipArmor(ItemInfo);
+}
+
 
 void ASurvivalCharacter::HarvestGroundItem(AActor* Ref)
 {
@@ -1357,6 +1447,15 @@ float ASurvivalCharacter::GetMaxState(const EStatEnum& State)
 		break;
 	}
 	return Result;
+}
+
+APlayerWindow* ASurvivalCharacter::GetPlayerWindow() const
+{
+	if (PlayerWindow && PlayerWindow->GetClass()->ImplementsInterface(UPlayerWindowInterface::StaticClass()))
+	{
+		return IPlayerWindowInterface::Execute_GetPlayerWindowRef(PlayerWindow);
+	}
+	return nullptr;
 }
 
 void ASurvivalCharacter::ApplyDamageToPlayer(float Damage, AActor* DamageCauser)
@@ -1653,6 +1752,7 @@ void ASurvivalCharacter::ServerDequipCurItem_Implementation(int32 Index)
 void ASurvivalCharacter::ServerSpawnEquipableThirdPerson_Implementation(TSubclassOf<AActor> Class, FItemInfo ItemInfo,
 	int32 LocalEquippedIndex)
 {
+	if (!HasAuthority()) return;
 	SpawnEquipableThirdPerson(Class, ItemInfo, LocalEquippedIndex);
 }
 
