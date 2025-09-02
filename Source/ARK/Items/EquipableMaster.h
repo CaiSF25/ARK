@@ -6,6 +6,7 @@
 #include "ItemMaster.h"
 #include "ARK/Interfaces/EquipableItem.h"
 #include "ARK/Structures/EquipableInfo.h"
+#include "ARK/Structures/ItemInfo.h"
 #include "EquipableMaster.generated.h"
 
 /**
@@ -19,6 +20,9 @@ class ARK_API AEquipableMaster : public AItemMaster, public IEquipableItem
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Equipable")
 	FEquipableInfo EquipableInfo;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Equipable")
+	FItemInfo ItemInfo;
 	
 	virtual AEquipableMaster* GetEquipableRef_Implementation() override;
 };

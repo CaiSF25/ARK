@@ -70,12 +70,6 @@ ASurvivalCharacter::ASurvivalCharacter()
 	// 数据表
 	bReplicates = true;
 	EquipableState = EEquipableState::Default;
-
-	// 护甲
-	ArmorSlots.Add(EArmorType::Helmet, nullptr);
-	ArmorSlots.Add(EArmorType::Chest, nullptr);
-	ArmorSlots.Add(EArmorType::Pants, nullptr);
-	ArmorSlots.Add(EArmorType::Boots, nullptr);
 }
 
 void ASurvivalCharacter::BeginPlay()
@@ -371,10 +365,12 @@ void ASurvivalCharacter::SpawnEquipableThirdPerson(const TSubclassOf<AActor> Cla
 			const AEquipableMaster* EquipRef = IEquipableItem::Execute_GetEquipableRef(ThirdPersonEquippedItem);
 			ReplicatedEquipSocketName = EquipRef->EquipableInfo.SocketName;
 
+			// ReplicatedEquipState = EquipRef->EquipableInfo.AnimationState;
+			EquipableState = EquipRef->EquipableInfo.AnimationState;
+
 			const FAttachmentTransformRules AttachRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
 			Spawned->AttachToComponent(Mesh3P, AttachRules, EquipRef->EquipableInfo.SocketName);
-
-			// MulticastWeaponEquip(ThirdPersonEquippedItem, EquipRef->EquipableInfo.SocketName, EquipRef->EquipableInfo.AnimationState);
+			
 			ClientSpawnEquipableFirstPerson(EquipRef->EquipableInfo.FirstPersonEquipClass, EquipRef->EquipableInfo.SocketName);
 			ClientEquipItem(EquipRef->EquipableInfo);
 		}
@@ -2150,4 +2146,26 @@ FRotator ASurvivalCharacter::GetArrowRotation_Implementation()
 {
 	const FRotator ArrowRotation = Arrow1->GetComponentRotation();
 	return ArrowRotation;
+}
+
+int32 ASurvivalCharacter::GetTotalArmorPieces_Implementation()
+{
+	int32 ArmorSlots = 0;
+	if (IsValid(HelmetSlots))
+	{
+		ArmorSlots++;
+	}
+	if (IsValid(ChestSlots))
+	{
+		ArmorSlots++;
+	}
+	if (IsValid(PantsSlots))
+	{
+		ArmorSlots++;
+	}
+	if (IsValid(BootsSlots))
+	{
+		ArmorSlots++;
+	}
+	return ArmorSlots;
 }

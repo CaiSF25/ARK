@@ -55,9 +55,6 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="VFX")
 	USoundAttenuation* DestructionAttenuation;
-	
-	UFUNCTION(Client, Reliable, BlueprintCallable)
-	void ClientGetRotation();
 
 	void OnOverlap(const FVector& SpherePos, const FRotator& Rotation);
 	
@@ -65,6 +62,11 @@ public:
 	void HarvestFoliage(const float Damage, AActor* Ref) const;
 
 private:
+	// 伤害
+	float DamageMultiplier = 0.03f;
+	
+	float CalculateDamage(AActor* HitActor, float ItemBaseDamage) const;
+	
 	// 逻辑操作
 	void Overlap(const FVector& SpherePos, const FRotator& Rotation);
 

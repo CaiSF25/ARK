@@ -39,4 +39,7 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MyInterface")
 	FRotator GetArrowRotation();
+	
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "MyInterface")
+	int32 GetTotalArmorPieces();
 };

@@ -25,14 +25,6 @@ void ATP_Hatchet::ServerOverlap_Implementation(const FVector& SpherePos, const F
 	Overlap(SpherePos, Rotation);
 }
 
-void ATP_Hatchet::ClientGetRotation_Implementation()
-{
-	if (AActor* LocalOwner = GetOwner(); LocalOwner->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
-	{
-		OnOverlap(ISurvivalCharacterInterface::Execute_GetArrowLocation(LocalOwner), ISurvivalCharacterInterface::Execute_GetArrowRotation(LocalOwner));
-	}
-}
-
 void ATP_Hatchet::OnOverlap(const FVector& SpherePos, const FRotator& Rotation)
 {
 	if (HasAuthority())
@@ -114,6 +106,17 @@ void ATP_Hatchet::HarvestFoliage(const float Damage, AActor* Ref) const
 	}
 }
 
+float ATP_Hatchet::CalculateDamage(AActor* HitActor, const float ItemBaseDamage) const
+{
+	const float LocalDamage = ItemBaseDamage * DamageMultiplier;
+	if (HitActor->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
+	{
+		const int32 TotalArmorPieces = ISurvivalCharacterInterface::Execute_GetTotalArmorPieces(HitActor);
+		return LocalDamage * (4 - TotalArmorPieces * 0.5);
+	}
+	return LocalDamage * 4;
+}
+
 void ATP_Hatchet::Overlap(const FVector& SpherePos, const FRotator& Rotation)
 {
 	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
@@ -138,15 +141,16 @@ void ATP_Hatchet::Overlap(const FVector& SpherePos, const FRotator& Rotation)
 	{
 		for (int i = 0; i < OutActors.Num(); i++)
 		{
+			const float Damage = CalculateDamage(OutActors[i], StaticCast<float>(ItemInfo.ItemDamage));
 			if (OutActors[i]->GetClass()->ImplementsInterface(ULargeItemInterface::StaticClass()))
 			{
-				HarvestFoliage(15, OutActors[i]);
+				HarvestFoliage(Damage, OutActors[i]);
 				MulticastHitFX(SpherePos, Rotation);
 			}
 			else
 			{
 				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, "We Hit a Player");
-				UGameplayStatics::ApplyDamage(OutActors[i], 15.0, Character->GetController(), this, UDamageType::StaticClass());
+				UGameplayStatics::ApplyDamage(OutActors[i], Damage, Character->GetController(), this, UDamageType::StaticClass());
 			}
 			
 		}
@@ -155,19 +159,6 @@ void ATP_Hatchet::Overlap(const FVector& SpherePos, const FRotator& Rotation)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, "No Hit");
 	}
-
-	UWorld* World = GetWorld();
-	/*DrawDebugSphere(
-		World,
-		SpherePos,
-		60.f,
-		12,
-		FColor::Red,
-		false,
-		10,
-		0,
-		2
-		);*/
 }
 
 void ATP_Hatchet::MulticastHitFX_Implementation(FVector Location, FRotator Rotation)
@@ -222,7 +213,12 @@ void ATP_Hatchet::UseItemInterface_Implementation(ASurvivalCharacter* CharRef)
 
 void ATP_Hatchet::NotifyInterface_Implementation()
 {
-	ClientGetRotation();
+	if(HasAuthority() && Character) 
+	{
+		const FVector Location = ISurvivalCharacterInterface::Execute_GetArrowLocation(Character);
+		const FRotator Rotation = ISurvivalCharacterInterface::Execute_GetArrowRotation(Character);
+		OnOverlap(Location, Rotation);
+	}
 }
 
 void ATP_Hatchet::EndAnimation_Implementation()

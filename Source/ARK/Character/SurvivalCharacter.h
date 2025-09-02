@@ -86,6 +86,9 @@ public:
 	UPROPERTY(Replicated)
 	FName ReplicatedEquipSocketName;
 
+	UPROPERTY(Replicated)
+	EEquipableState ReplicatedEquipState;
+
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="Weapon")
 	int32 EquippedIndex;
 
@@ -114,9 +117,6 @@ public:
 	void ClientEquipItem(const FEquipableInfo& Info);
 	
 	// 护甲
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Armor")
-	TMap<EArmorType, AItemMaster*> ArmorSlots;
-
 	UPROPERTY(ReplicatedUsing=OnRep_HelmetSlots)
 	AItemMaster* HelmetSlots;
 
@@ -587,4 +587,6 @@ public:
 	virtual FVector GetArrowLocation_Implementation() override;
 
 	virtual FRotator GetArrowRotation_Implementation() override;
+
+	virtual int32 GetTotalArmorPieces_Implementation() override;
 };
