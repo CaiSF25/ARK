@@ -24,13 +24,15 @@ public:
 public:
 	UFUNCTION(NetMulticast, Reliable)
 	void MasterPoseEvent(ASurvivalCharacter* CharRef);
-	
-	// 接口实现
-	virtual AArmorMaster* GetArmorRef_Implementation() override;
 
 	FItemInfo GetItemInfo() const { return ItemInfo; }
 
 	USkeletalMeshComponent* GetSkeletalMeshComponent() const { return SkeletalMesh; }
+
+	void SetItemInfo(const FItemInfo& InItemInfo) { ItemInfo = InItemInfo; }
+	
+	// 接口实现
+	virtual AArmorMaster* GetArmorRef_Implementation() override;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Component")

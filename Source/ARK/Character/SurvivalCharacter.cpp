@@ -1456,8 +1456,10 @@ APlayerWindow* ASurvivalCharacter::GetPlayerWindow() const
 
 void ASurvivalCharacter::ApplyDamageToPlayer(float Damage, AActor* DamageCauser)
 {
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Damage!!!!!!!");
 	if (!bIsDead)
 	{
+		ArmorDuraDamageMele(Damage);
 		const float LocalCurHealth = PlayerStats.CurrentHealth - Damage;
 		PlayerStats.CurrentHealth = LocalCurHealth;
 		if (GetController() && GetController()->GetClass()->ImplementsInterface(UPlayerControllerInterface::StaticClass()))
@@ -1479,6 +1481,62 @@ void ASurvivalCharacter::ApplyDamageToPlayer(float Damage, AActor* DamageCauser)
 		}
 	}
 	
+}
+
+void ASurvivalCharacter::ArmorDuraDamageMele(float Damage)
+{
+	const float LocalDamage = Damage / StaticCast<float>(Execute_GetTotalArmorPieces(this)) / 2.f;
+	if (IsValid(HelmetSlots))
+	{
+		ArmorSlotDamage(HelmetSlots, EArmorType::Helmet, LocalDamage);
+	}
+
+	if (IsValid(ChestSlots))
+	{
+		ArmorSlotDamage(ChestSlots, EArmorType::Chest, LocalDamage);
+	}
+
+	if (IsValid(PantsSlots))
+	{
+		ArmorSlotDamage(PantsSlots, EArmorType::Pants, LocalDamage);
+	}
+
+	if (IsValid(BootsSlots))
+	{
+		ArmorSlotDamage(BootsSlots, EArmorType::Boots, LocalDamage);
+	}
+}
+
+void ASurvivalCharacter::ArmorSlotDamage(UObject* ArmorRef, const EArmorType& ArmorType, const float DuraDamage)
+{
+	if (!ArmorRef->GetClass()->ImplementsInterface(UArmorItemInterface::StaticClass())) return;
+	AArmorMaster* ArmorMaster = IArmorItemInterface::Execute_GetArmorRef(ArmorRef);
+	if (!ArmorMaster) return;
+	
+	FItemInfo NewItemInfo = ArmorMaster->GetItemInfo();
+	const int32 Durability = NewItemInfo.ItemCurHp;
+
+	if (const int32 NewDurability = Durability - FMath::TruncToInt32(DuraDamage); NewDurability <= 0)
+	{
+		ArmorBreak(ArmorType);
+	}
+	else
+	{
+		NewItemInfo.ItemCurHp = NewDurability;
+		ArmorMaster->SetItemInfo(NewItemInfo);
+		GetSurvivalController()->UpdateArmorUI(ArmorType, NewItemInfo);
+	}
+}
+
+void ASurvivalCharacter::ArmorBreak(const EArmorType& ArmorType)
+{
+	AItemMaster*& ArmorSlot = GetArmorSlotRefByType(ArmorType);
+	if (!IsValid(ArmorSlot)) return;
+
+	ArmorSlot->Destroy();
+	ArmorSlot = nullptr;
+	GetSurvivalController()->RemoveArmorUI(ArmorType);
+	ClientDequipArmor(ArmorType);
 }
 
 void ASurvivalCharacter::OnRep_Starving()

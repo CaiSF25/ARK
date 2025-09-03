@@ -255,12 +255,15 @@ private:
 	UFUNCTION()
 	void OnPickUpMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 
+	// 伤害
 	UFUNCTION()
 	void HandleAnyDamage(AActor* DamagedActor,
 						 float Damage,
 						 const UDamageType* DamageType,
 						 AController* InstigatedBy,
 						 AActor* DamageCauser);
+	
+	void ApplyDamageToPlayer(float Damage, AActor* DamageCauser);
 	
 	// 辅助函数
 	ASurvivalPlayerController* GetSurvivalController() const;
@@ -276,9 +279,6 @@ private:
 	float GetMaxState(const EStatEnum& State);
 
 	APlayerWindow* GetPlayerWindow() const;
-	
-	UFUNCTION()
-	void ApplyDamageToPlayer(float Damage, AActor* DamageCauser);
 
 	// 回调函数
 	UFUNCTION()
@@ -371,6 +371,12 @@ private:
 
 	UFUNCTION(Client, Reliable)
 	void ClientDequipArmor(const EArmorType& ArmorType);
+
+	void ArmorDuraDamageMele(float Damage);
+
+	void ArmorSlotDamage(UObject* ArmorRef, const EArmorType& ArmorType, float DuraDamage);
+
+	void ArmorBreak(const EArmorType& ArmorType);
 	
 	// 使用消耗品(立即生效）
 	void ConsumeItem(int32 Index, const EContainerType& Container);

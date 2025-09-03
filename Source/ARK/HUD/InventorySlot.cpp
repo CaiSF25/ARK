@@ -2,6 +2,8 @@
 
 
 #include "InventorySlot.h"
+
+#include "IDetailTreeNode.h"
 #include "Input/Reply.h"
 #include "ItemDrag.h"
 #include "ARK/Character/SurvivalCharacter.h"
@@ -148,7 +150,6 @@ bool UInventorySlot::NativeOnDrop(const FGeometry& InGeometry, const FDragDropEv
 
 void UInventorySlot::UpdateSlot(const FItemInfo& LocalItemInfo)
 {
-	// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Update UItem Container11");
 	ItemInfo = LocalItemInfo;
 
 	HasItemInSlot = true;
@@ -156,12 +157,86 @@ void UInventorySlot::UpdateSlot(const FItemInfo& LocalItemInfo)
 	ItemIcon->SetBrushFromTexture(ItemInfo.ItemIcon);
 	ItemIcon->SetVisibility(ESlateVisibility::Visible);
 
-	const FText FormattedText = FText::Format(
-		FText::FromString("x{0}"),
-		ItemInfo.ItemQuantity
-		);
-	QuantityText->SetText(FormattedText);
-	QuantityText->SetVisibility(ESlateVisibility::Visible);
+	switch (ItemInfo.ItemType)
+	{
+	case EItemType::Resource:
+		{
+			const FText FormattedText = FText::Format(
+		   FText::FromString("x{0}"),
+		   ItemInfo.ItemQuantity
+		   );
+			QuantityText->SetText(FormattedText);
+			QuantityText->SetVisibility(ESlateVisibility::Visible);
+			TopText->SetVisibility(ESlateVisibility::Hidden);
+			ButtonText->SetVisibility(ESlateVisibility::Hidden);
+			ItemHP->SetVisibility(ESlateVisibility::Hidden);
+			break;
+		}
+	case EItemType::Equipable:
+		{
+			const FText FormattedText = FText::Format(
+			  FText::FromString("DMG {0}%"),
+			  ItemInfo.ItemDamage
+			  );
+			TopText->SetText(FormattedText);
+			TopText->SetVisibility(ESlateVisibility::Visible);
+			QuantityText->SetVisibility(ESlateVisibility::Hidden);
+			ItemHP->SetVisibility(ESlateVisibility::Visible);
+			ItemHP->SetPercent(StaticCast<float>(ItemInfo.ItemCurHp) / StaticCast<float>(ItemInfo.ItemMaxHp));
+			if (ItemInfo.UseAmmo)
+			{
+				ButtonText->SetVisibility(ESlateVisibility::Visible);
+			}
+			else
+			{
+				ButtonText->SetVisibility(ESlateVisibility::Hidden);
+			}
+			break;
+		}
+	case EItemType::Armor:
+		{
+			const FText FormattedText = FText::Format(
+				 FText::FromString("{0} Armor"),
+				 ItemInfo.ItemDamage
+				 );
+			TopText->SetText(FormattedText);
+			TopText->SetVisibility(ESlateVisibility::Visible);
+			QuantityText->SetVisibility(ESlateVisibility::Hidden);
+			ButtonText->SetVisibility(ESlateVisibility::Hidden);
+			ItemHP->SetVisibility(ESlateVisibility::Visible);
+			ItemHP->SetPercent(StaticCast<float>(ItemInfo.ItemCurHp) / StaticCast<float>(ItemInfo.ItemMaxHp));
+			break;
+		}
+	case EItemType::Consumable:
+		{
+			const FText FormattedText = FText::Format(
+			  FText::FromString("x{0}"),
+			  ItemInfo.ItemQuantity
+			  );
+			QuantityText->SetText(FormattedText);
+			QuantityText->SetVisibility(ESlateVisibility::Visible);
+			ItemHP->SetVisibility(ESlateVisibility::Visible);
+			ItemHP->SetPercent(StaticCast<float>(ItemInfo.ItemCurHp) / StaticCast<float>(ItemInfo.ItemMaxHp));
+			ButtonText->SetVisibility(ESlateVisibility::Hidden);
+			TopText->SetVisibility(ESlateVisibility::Hidden);
+			break;
+		}
+	case EItemType::Buildable:
+		{
+			const FText FormattedText = FText::Format(
+		   FText::FromString("x{0}"),
+		   ItemInfo.ItemQuantity
+		   );
+			QuantityText->SetText(FormattedText);
+			QuantityText->SetVisibility(ESlateVisibility::Visible);
+			TopText->SetVisibility(ESlateVisibility::Hidden);
+			ButtonText->SetVisibility(ESlateVisibility::Hidden);
+			ItemHP->SetVisibility(ESlateVisibility::Hidden);
+			break;
+		}
+	default:
+		break;
+	}
 }
 
 void UInventorySlot::ResetSlot()
