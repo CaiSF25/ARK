@@ -13,6 +13,7 @@
 #include "Sound/SoundCue.h"
 #include "SurvivalCharacter.generated.h"
 
+class UBuildingComponent;
 class APlayerWindow;
 class AArmorMaster;
 struct FResourceStructure;
@@ -47,6 +48,8 @@ protected:
 public:
 	// 组件
 	USkeletalMeshComponent* GetMesh3P() const { return Mesh3P; }
+
+	UCameraComponent* GetFirstPersonCamera() const { return FirstPersonCameraComponent; }
 	
 	// 库存系统
 	void OnSlotDrop(
@@ -194,9 +197,17 @@ private:
 
 	void Look(const FInputActionValue& Value);
 
+	void OnAttack();
+
 	void Attack();
 
+	UFUNCTION(Server, Reliable)
+	void ServerAttack();
+
 	void Interact();
+
+	UFUNCTION(Server, Reliable)
+	void ServerInteract();
 
 	// 加速
 	float SprintSpeed = 800.f;
@@ -289,13 +300,6 @@ private:
 	
 	// 入口函数
 	void Hotbar(const int32 Index);
-
-	// 角色动作
-	UFUNCTION(Server, Reliable)
-	void ServerAttack();
-
-	UFUNCTION(Server, Reliable)
-	void ServerInteract();
 
 	// ------------------------------------------   库存系统   ------------------------------------------
 	// 玩家库存
@@ -580,6 +584,13 @@ private:
 
 	void ApplySkillPoints(const EStatEnum& Stat);
 
+	// ------------------------------------------   建造系统   ------------------------------------------
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "BuildingSystem", meta = (AllowPrivateAccess = "true"))
+	UBuildingComponent* BuildingComponent;
+
+	UFUNCTION(Client, Reliable)
+	void PlaceBuildable() const;
+	
 public:
 	// 接口实现
 	virtual AController* GetControllerFromChar_Implementation() override;

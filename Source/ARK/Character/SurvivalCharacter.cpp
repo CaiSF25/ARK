@@ -10,6 +10,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "SurvivalPlayerController.h"
+#include "ARK/BuildingSystem/BuildingComponent.h"
 #include "ARK/PlayerWindow/PlayerWindow.h"
 #include "ARK/HarvestingSystem/DestructableHarvestable.h"
 #include "ARK/HarvestingSystem/GroundItemMaster.h"
@@ -67,7 +68,9 @@ ASurvivalCharacter::ASurvivalCharacter()
 	PlayerInventory = CreateDefaultSubobject<UPlayerInventory>(TEXT("PlayerInventory"));
 	PlayerHotBar = CreateDefaultSubobject<UPlayerHotBar>(TEXT("PlayerHotBar"));
 
-	// 数据表
+	// 建造系统
+	BuildingComponent = CreateDefaultSubobject<UBuildingComponent>(TEXT("BuildingComponent"));
+	
 	bReplicates = true;
 	EquipableState = EEquipableState::Default;
 }
@@ -202,19 +205,33 @@ void ASurvivalCharacter::Look(const FInputActionValue& Value)
 	}
 }
 
-void ASurvivalCharacter::Attack()
+void ASurvivalCharacter::OnAttack()
 {
 	if (HasAuthority())
 	{
-		if (IsValid(ThirdPersonEquippedItem) && ThirdPersonEquippedItem->GetClass()->ImplementsInterface(UEquipableItem::StaticClass()))
-		{
-			IEquipableItem::Execute_UseItemInterface(ThirdPersonEquippedItem, this);
-		}
+		Attack();
 	}
 	else
 	{
 		ServerAttack();
 	}
+}
+
+void ASurvivalCharacter::Attack()
+{
+	if (IsValid(ThirdPersonEquippedItem) && ThirdPersonEquippedItem->GetClass()->ImplementsInterface(UEquipableItem::StaticClass()))
+	{
+		IEquipableItem::Execute_UseItemInterface(ThirdPersonEquippedItem, this);
+	}
+	else
+	{
+		PlaceBuildable();
+	}
+}
+
+void ASurvivalCharacter::ServerAttack_Implementation()
+{
+	Attack();
 }
 
 void ASurvivalCharacter::Interact()
@@ -741,17 +758,6 @@ void ASurvivalCharacter::OnRep_EquippedWeapon()
 	}
 }
 
-void ASurvivalCharacter::ServerAttack_Implementation()
-{
-	if (IsValid(ThirdPersonEquippedItem))
-	{
-		if (ThirdPersonEquippedItem->GetClass()->ImplementsInterface(UEquipableItem::StaticClass()))
-		{
-			IEquipableItem::Execute_UseItemInterface(ThirdPersonEquippedItem, this);
-		}
-	}
-}
-
 void ASurvivalCharacter::MulticastWeaponEquip_Implementation(AActor* Target, const FName& SocketName,
                                                              const EEquipableState& EquippedState)
 {
@@ -1153,7 +1159,7 @@ void ASurvivalCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &ASurvivalCharacter::Interact);
 
-		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ASurvivalCharacter::Attack);
+		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ASurvivalCharacter::OnAttack);
 		
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &ASurvivalCharacter::OnSprintPressed);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &ASurvivalCharacter::OnSprintReleased);
@@ -2172,6 +2178,16 @@ void ASurvivalCharacter::ApplySkillPoints(const EStatEnum& Stat)
 		{
 			SurvivalPC->RemoveLevelNotify();
 		}
+	}
+}
+
+void ASurvivalCharacter::PlaceBuildable_Implementation() const
+{
+	UE_LOG(LogTemp, Warning, TEXT("OnAttack called! HasAuthority: %s"), BuildingComponent->GetIsBuildModeEnabled() ? TEXT("True") : TEXT("False")); 
+	if (BuildingComponent->GetIsBuildModeEnabled())
+	{
+		BuildingComponent->OnSpawnBuild(BuildingComponent->GetBuildTransform(), FirstPersonCameraComponent->GetForwardVector(), FirstPersonCameraComponent->GetComponentRotation());
+		BuildingComponent->SetIsBuildModeEnabled(false);
 	}
 }
 

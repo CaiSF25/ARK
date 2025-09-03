@@ -8,9 +8,9 @@ USTRUCT(BlueprintType)
 struct FBuildableInfo : public FTableRowBase
 {
 	GENERATED_BODY()
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="BuildingSystem")
-	ETraceTypeQuery TraceChannel;
+	TEnumAsByte<ETraceTypeQuery> TraceChannel;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="BuildingSystem")
 	bool CanPlaceGround = false;
