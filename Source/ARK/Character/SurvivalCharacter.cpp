@@ -150,6 +150,8 @@ void ASurvivalCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProper
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ASurvivalCharacter, EquipableState);
 	DOREPLIFETIME(ASurvivalCharacter, ThirdPersonEquippedItem);
+	DOREPLIFETIME(ASurvivalCharacter, ReplicatedEquipSocketName);
+	DOREPLIFETIME(ASurvivalCharacter, ReplicatedEquipState);
 	DOREPLIFETIME(ASurvivalCharacter, StaminaState);
 	DOREPLIFETIME(ASurvivalCharacter, bIsStarving);
 	DOREPLIFETIME(ASurvivalCharacter, bIsDehydrated);
