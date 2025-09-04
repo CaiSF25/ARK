@@ -3,6 +3,8 @@
 
 #include "BuildableMaster.h"
 
+#include "Components/BoxComponent.h"
+
 ABuildableMaster::ABuildableMaster()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
@@ -17,6 +19,14 @@ ABuildableMaster::ABuildableMaster()
 	// 模型
 	StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>("StaticMesh");
 	StaticMesh->SetupAttachment(Root);
+	
+	// 自定义碰撞
+	OverlapBox = CreateDefaultSubobject<UBoxComponent>("OverlapBox");
+	OverlapBox->SetupAttachment(Root);
+	OverlapBox->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
+	OverlapBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	OverlapBox->SetCollisionObjectType(ECC_WorldDynamic);
+	OverlapBox->SetCollisionResponseToAllChannels(ECR_Ignore);
 }
 
 void ABuildableMaster::Tick(float DeltaTime)

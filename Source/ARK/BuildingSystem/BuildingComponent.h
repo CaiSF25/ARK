@@ -84,4 +84,6 @@ private:
 
 	UFUNCTION(Server, Reliable)
 	void ServerSpawnBuild(const FTransform& Transform, const FVector& ClientCameraVector, const FRotator& ClientCameraRotation);
+
+	bool CheckForOverlap() const;
 };

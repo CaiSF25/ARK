@@ -7,6 +7,7 @@
 #include "ARK/Character/SurvivalCharacter.h"
 #include "ARK/Interfaces/SurvivalCharacterInterface.h"
 #include "Camera/CameraComponent.h"
+#include "Components/BoxComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 
@@ -128,21 +129,15 @@ void UBuildingComponent::BuildMode(const int32 StructureID)
 	FVector DesiredLocation = bHit ? OutHit.ImpactPoint : End;
 	FRotator DesiredRotation(0.f, Rotation.Yaw + 90.f, 0.f);
 	BuildTransform = FTransform(DesiredRotation, DesiredLocation);
-	
-	if (!IsValid(BuildPreview))
-	{
-		SpawnBuildPreview(StructureID);
-	}
 
 	if (IsValid(BuildPreview))
 	{
-		SetPreviewColor(false); 
+		SetPreviewColor(true);
 	}
 	else
 	{
 		SpawnBuildPreview(StructureID);
 	}
-
 	StartBuildLoop(StructureID);
 }
 
@@ -258,8 +253,46 @@ void UBuildingComponent::SpawnBuild(const FTransform& Transform, const FVector& 
 	Preview->SetActorEnableCollision(true);
 }
 
+bool UBuildingComponent::CheckForOverlap() const
+{
+	FBuildableInfo BuildableInfo = BuildPreview->GetBuildableInfo();
+
+	FVector StaticMeshOrigin;
+	FVector StaticMeshBoxExtent;
+	float StaticMeshSphereRadius;
+	UKismetSystemLibrary::GetComponentBounds(BuildPreview->GetStaticMeshComponent(), StaticMeshOrigin, StaticMeshBoxExtent, StaticMeshSphereRadius);
+
+	FVector OverlapBoxOrigin;
+	FVector OverlapBoxExtent;
+	float OverlapBoxSphereRadius;
+	UKismetSystemLibrary::GetComponentBounds(BuildPreview->GetBoxComponent(), OverlapBoxOrigin, OverlapBoxExtent, OverlapBoxSphereRadius);
+
+	FVector Start = BuildableInfo.UseCustomOverlap ? OverlapBoxOrigin : StaticMeshOrigin;
+	FVector End = BuildableInfo.UseCustomOverlap ? OverlapBoxExtent : StaticMeshBoxExtent;
+	constexpr float HalfSize = 1.2f;
+	FRotator Rotation = FRotator(0, BuildPreview->GetActorRotation().Yaw + 90, 0);
+	ETraceTypeQuery TraceQuery = UEngineTypes::ConvertToTraceType(ECC_Visibility);
+	TArray<AActor*> ActorsToIgnore;
+	ActorsToIgnore.Add(BuildPreview);
+	FHitResult OutHit;
+	
+	 return UKismetSystemLibrary::BoxTraceSingle(
+		GetWorld(),
+		Start,
+		End,
+		End / HalfSize,
+		Rotation,
+		TraceQuery,
+		false,
+		ActorsToIgnore,
+		EDrawDebugTrace::ForDuration,
+		OutHit,
+		true
+		);
+}
+
 void UBuildingComponent::ServerSpawnBuild_Implementation(const FTransform& Transform, const FVector& ClientCameraVector,
-	const FRotator& ClientCameraRotation)
+                                                         const FRotator& ClientCameraRotation)
 {
 	SpawnBuild(Transform, ClientCameraVector, ClientCameraRotation);
 }
