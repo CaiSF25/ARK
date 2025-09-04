@@ -19,7 +19,7 @@ ABuildableMaster::ABuildableMaster()
 	// 模型
 	StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>("StaticMesh");
 	StaticMesh->SetupAttachment(Root);
-	
+
 	// 自定义碰撞
 	OverlapBox = CreateDefaultSubobject<UBoxComponent>("OverlapBox");
 	OverlapBox->SetupAttachment(Root);

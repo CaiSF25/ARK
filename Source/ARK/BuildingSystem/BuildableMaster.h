@@ -3,11 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "DiffUtils.h"
 #include "ARK/Interfaces/BuildInterface.h"
 #include "ARK/Structures/BuildableInfo.h"
 #include "GameFramework/Actor.h"
-#include "PhysicsEngine/ShapeElem.h"
 #include "BuildableMaster.generated.h"
 
 class UBoxComponent;
@@ -42,11 +40,11 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	UStaticMeshComponent* StaticMesh;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	FBuildableInfo BuildableInfo;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	UBoxComponent* OverlapBox;
-
+	
 private:
 };
