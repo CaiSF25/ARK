@@ -7,6 +7,7 @@
 #include "BuildingComponent.generated.h"
 
 
+class UCameraComponent;
 class ABuildableMaster;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -39,6 +40,10 @@ public:
 	void OnSpawnBuild(const FTransform& Transform, const FVector& ClientCameraVector, const FRotator& ClientCameraRotation);
 
 private:
+	// 组件
+	UPROPERTY()
+	UCameraComponent* SurvivalCamera = nullptr;
+	
 	// 预览模式
 	bool bIsBuildModeEnabled = false;
 

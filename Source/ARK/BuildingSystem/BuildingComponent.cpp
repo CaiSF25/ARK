@@ -3,12 +3,10 @@
 
 
 #include "BuildingComponent.h"
-
 #include "BuildableMaster.h"
 #include "ARK/Character/SurvivalCharacter.h"
 #include "ARK/Interfaces/SurvivalCharacterInterface.h"
 #include "Camera/CameraComponent.h"
-#include "Chaos/Utilities.h"
 #include "Components/BoxComponent.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -27,7 +25,11 @@ void UBuildingComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 void UBuildingComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	if (const ASurvivalCharacter* SurvivalCharacter = Cast<ASurvivalCharacter>(ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(GetOwner())))
+	{
+		SurvivalCamera = SurvivalCharacter->GetFirstPersonCamera();
+	}
 }
 
 void UBuildingComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -65,8 +67,7 @@ void UBuildingComponent::ClientLaunchBuildMode_Implementation(int32 StructureID)
 
 void UBuildingComponent::BuildMode(const int32 StructureID)
 {
-	const UCameraComponent* CameraComponent = Cast<ASurvivalCharacter>(ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(GetOwner()))->GetFirstPersonCamera();
-	if (!CameraComponent) return;
+	if (!SurvivalCamera) return;
 	
 	UWorld* World = GetWorld();
 	if (!World) return;
@@ -79,9 +80,9 @@ void UBuildingComponent::BuildMode(const int32 StructureID)
 	constexpr int32 BuildDistanceClose = 350;
 	constexpr int32 BuildDistanceFar = 1000;
 
-	FVector Forward = CameraComponent->GetForwardVector();
-	FVector Location = CameraComponent->GetComponentLocation();
-	FRotator Rotation = CameraComponent->GetComponentRotation();
+	FVector Forward = SurvivalCamera->GetForwardVector();
+	FVector Location = SurvivalCamera->GetComponentLocation();
+	FRotator Rotation = SurvivalCamera->GetComponentRotation();
 	
 	FVector Start = Forward * BuildDistanceClose + Location;
 	FVector End = Forward * BuildDistanceFar + Location;
@@ -300,7 +301,7 @@ bool UBuildingComponent::CheckForOverlap() const
 bool UBuildingComponent::BuildPlacementCheck(const int32 StructureID, const FVector& ClientCameraVector,
 	const FRotator& ClientCameraRotation)
 {
-	/*UWorld* World = GetWorld();
+	UWorld* World = GetWorld();
     if (!World) 
     {
         UE_LOG(LogTemp, Warning, TEXT("BuildPlacementCheck: No World"));
@@ -354,11 +355,18 @@ bool UBuildingComponent::BuildPlacementCheck(const int32 StructureID, const FVec
         BuildPreview->SetActorEnableCollision(false);
     }
 	
-    ECollisionChannel TraceChannel = ECC_WorldStatic; // 默认
-    if (IsValid(BuildPreview))
-    {
-        TraceChannel = BuildPreview->GetBuildableInfo().TraceChannel;
-    }
+	ECollisionChannel TraceChannel = ECC_Visibility;
+	if (IsValid(BuildPreview))
+	{
+		TraceChannel = BuildPreview->GetBuildableInfo().TraceChannel;
+	}
+	else if (BuildingClass)
+	{
+		if (ABuildableMaster* CDO = Cast<ABuildableMaster>(BuildingClass->GetDefaultObject()))
+		{
+			TraceChannel = CDO->GetBuildableInfo().TraceChannel;
+		}
+	}
 	
     FHitResult OutHit;
     FCollisionQueryParams TraceParams(SCENE_QUERY_STAT(BuildPlacementTrace), true);
@@ -380,284 +388,6 @@ bool UBuildingComponent::BuildPlacementCheck(const int32 StructureID, const FVec
         return !CheckForOverlap();
     }
 
-    return false;*/
-	
-	UWorld* World = GetWorld();
-    if (!World)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BuildPlacementCheck: No World"));
-        return false;
-    }
-
-    if (!GetOwner() || !GetOwner()->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BuildPlacementCheck: Owner invalid or doesn't implement interface"));
-        return false;
-    }
-
-    ASurvivalCharacter* SurvivalCharacter = Cast<ASurvivalCharacter>(ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(GetOwner()));
-    if (!SurvivalCharacter)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BuildPlacementCheck: SurvivalCharacter cast failed"));
-        return false;
-    }
-
-    UCameraComponent* FirstPersonCamera = SurvivalCharacter->GetFirstPersonCamera();
-    if (!FirstPersonCamera)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BuildPlacementCheck: No camera"));
-        return false;
-    }
-
-    FVector CameraLocation = FirstPersonCamera->GetComponentLocation();
-
-    const float BuildDistanceClose = 350.f;
-    const float BuildDistanceFar = 1000.f;
-
-    FVector Forward = ClientCameraVector.GetSafeNormal();
-    if (Forward.IsNearlyZero())
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BuildPlacementCheck: ClientCameraVector is zero"));
-        return false;
-    }
-
-    FVector StartLocation = CameraLocation + Forward * BuildDistanceClose;
-    FVector EndLocation   = CameraLocation + Forward * BuildDistanceFar;
-
-    // Decide TraceChannel (preview preference, else CDO)
-    ECollisionChannel TraceChannel = ECC_WorldStatic;
-    if (IsValid(BuildPreview))
-    {
-        TraceChannel = BuildPreview->GetBuildableInfo().TraceChannel;
-    }
-    else if (BuildingClass)
-    {
-        if (ABuildableMaster* CDO = Cast<ABuildableMaster>(BuildingClass->GetDefaultObject()))
-        {
-            TraceChannel = CDO->GetBuildableInfo().TraceChannel;
-        }
-    }
-
-#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
-    {
-        const FString ChannelName = StaticEnum<ECollisionChannel>()->GetNameStringByValue((int64)TraceChannel);
-        UE_LOG(LogTemp, Log, TEXT("Build: Using TraceChannel = %s (%d)"), *ChannelName, (int32)TraceChannel);
-        if (GEngine)
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-                FString::Printf(TEXT("TraceChannel: %s (%d)"), *ChannelName, (int32)TraceChannel));
-        }
-    }
-#endif
-
-    // Line trace to determine impact point / potential snap target
-    FHitResult OutHit;
-    FCollisionQueryParams TraceParams(SCENE_QUERY_STAT(BuildPlacementTrace), true);
-    TraceParams.AddIgnoredActor(GetOwner());
-    bool bHit = World->LineTraceSingleByChannel(OutHit, StartLocation, EndLocation, TraceChannel, TraceParams);
-
-    FVector DesiredLocation = bHit ? OutHit.ImpactPoint : EndLocation;
-    FRotator DesiredRotation(0.f, ClientCameraRotation.Yaw + 90.f, 0.f);
-    BuildTransform = FTransform(DesiredRotation, DesiredLocation);
-
-    if (bHit)
-    {
-        HitActor = OutHit.GetActor();
-        HitComponent = OutHit.GetComponent();
-    }
-
-    if (IsValid(BuildPreview))
-    {
-        BuildPreview->SetActorTransform(BuildTransform);
-    }
-
-    // overlap/box check
-    bool bCanPlace = false;
-    if (IsValid(BuildPreview))
-    {
-        bCanPlace = !CheckForOverlap();
-        return bCanPlace;
-    }
-
-    // No preview: server authoritative check using CDO bounds and sweep
-    if (!GetOwner()->HasAuthority())
-    {
-        // non-authority and no preview -> cannot safely decide
-        return false;
-    }
-
-    if (!BuildingClass)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BuildPlacementCheck (Server): No BuildingClass"));
-        return false;
-    }
-
-    ABuildableMaster* CDO = Cast<ABuildableMaster>(BuildingClass->GetDefaultObject());
-    if (!CDO)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BuildPlacementCheck (Server): CDO null"));
-        return false;
-    }
-
-    // select component to base bounds on
-    UPrimitiveComponent* RelevantComp = nullptr;
-    if (CDO->GetBoxComponent()) RelevantComp = CDO->GetBoxComponent();
-    else if (CDO->GetStaticMeshComponent()) RelevantComp = CDO->GetStaticMeshComponent();
-
-    if (!RelevantComp)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BuildPlacementCheck (Server): CDO has no relevant component"));
-        return false;
-    }
-
-    FVector LocalOrigin; FVector LocalExtent; float LocalSphereRadius;
-    UKismetSystemLibrary::GetComponentBounds(RelevantComp, LocalOrigin, LocalExtent, LocalSphereRadius);
-
-    if (LocalExtent.IsNearlyZero(0.001f))
-    {
-        if (UStaticMeshComponent* SMC = Cast<UStaticMeshComponent>(RelevantComp))
-        {
-            if (SMC->GetStaticMesh())
-            {
-                const FBoxSphereBounds MeshBounds = SMC->GetStaticMesh()->GetBounds();
-                LocalExtent = MeshBounds.BoxExtent * SMC->GetRelativeScale3D();
-            }
-        }
-        if (LocalExtent.IsNearlyZero(0.001f))
-        {
-            LocalExtent = FVector(50.f, 50.f, 50.f);
-        }
-        LocalOrigin = RelevantComp->GetRelativeLocation();
-    }
-
-    const FRotator BoxRotation(0.f, BuildTransform.Rotator().Yaw + 90.f, 0.f);
-    constexpr float HalfSizeFactor = 1.2f;
-    const FVector QueryExtent = LocalExtent / HalfSizeFactor;
-
-    const FVector WorldBoxCenter = BuildTransform.TransformPosition(LocalOrigin);
-
-    ECollisionChannel ServerTraceChannel = TraceChannel;
-
-    // ignored actors
-    FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(ServerBuildBoxTrace), false);
-    if (AActor* OwnerActor = GetOwner())
-    {
-        QueryParams.AddIgnoredActor(OwnerActor);
-        if (APawn* OwnerPawn = Cast<APawn>(OwnerActor))
-        {
-            QueryParams.AddIgnoredActor(OwnerPawn);
-        }
-    }
-    if (IsValid(BuildPreview))
-    {
-        QueryParams.AddIgnoredActor(BuildPreview);
-    }
-
-    FCollisionShape BoxShape = FCollisionShape::MakeBox(QueryExtent);
-
-    // First sweep at candidate transform
-    FHitResult HitOut;
-    bool bHitBox = false;
-    if (UWorld* WorldPtr = GetWorld())
-    {
-        bHitBox = WorldPtr->SweepSingleByChannel(
-            HitOut,
-            WorldBoxCenter,
-            WorldBoxCenter,
-            BoxRotation.Quaternion(),
-            ServerTraceChannel,
-            BoxShape,
-            QueryParams
-        );
-    }
-
-    if (!bHitBox)
-    {
-        // no blocking hit -> can place
-        return true;
-    }
-
-    // We hit something. If it's a buildable (implements BuildInterface) -> attempt server-side snap
-    AActor* BlockActor = HitOut.GetActor();
-    UPrimitiveComponent* BlockComp = HitOut.GetComponent();
-
-    UE_LOG(LogTemp, Warning, TEXT("[Build][Server] BoxTrace BLOCKED by Actor=%s, Component=%s, Location=%s"),
-           *GetNameSafe(BlockActor),
-           *GetNameSafe(BlockComp),
-           *HitOut.ImpactPoint.ToString());
-
-    if (BlockComp)
-    {
-        const FName ProfileName = BlockComp->GetCollisionProfileName();
-        const ECollisionChannel ObjType = BlockComp->GetCollisionObjectType();
-        const ECollisionResponse ResponseToChannel = BlockComp->GetCollisionResponseToChannel(ServerTraceChannel);
-
-        UE_LOG(LogTemp, Warning, TEXT("[Build][Server] BlockComp Profile=%s, ObjectType=%d, ResponseToServerChannel=%d"),
-               *ProfileName.ToString(), (int32)ObjType, (int32)ResponseToChannel);
-    }
-
-    // If the hit actor is a buildable, try snapping
-    if (BlockActor && BlockActor->GetClass()->ImplementsInterface(UBuildInterface::StaticClass()))
-    {
-        UE_LOG(LogTemp, Log, TEXT("[Build][Server] Hit buildable %s - attempting server-side snap"), *GetNameSafe(BlockActor));
-
-        // set member HitActor/HitComponent so GetSnappingPoints() can use them
-        this->HitActor = BlockActor;
-        this->HitComponent = BlockComp;
-
-        auto SnapResult = GetSnappingPoints();
-        // clear members after call (we'll set back if needed)
-        this->HitActor = nullptr;
-        this->HitComponent = nullptr;
-
-        if (SnapResult.first)
-        {
-            // found snap transform on server -> update BuildTransform and re-check collisions
-            BuildTransform = SnapResult.second;
-
-            // recompute world center with snapped transform
-            const FVector SnappedWorldCenter = BuildTransform.TransformPosition(LocalOrigin);
-
-            // re-run sweep at snapped transform
-            FHitResult HitAfterSnap;
-            bool bHitAfterSnap = false;
-            if (UWorld* WorldPtr2 = GetWorld())
-            {
-                bHitAfterSnap = WorldPtr2->SweepSingleByChannel(
-                    HitAfterSnap,
-                    SnappedWorldCenter,
-                    SnappedWorldCenter,
-                    BoxRotation.Quaternion(),
-                    ServerTraceChannel,
-                    BoxShape,
-                    QueryParams
-                );
-            }
-
-            if (!bHitAfterSnap)
-            {
-                UE_LOG(LogTemp, Log, TEXT("[Build][Server] Snap succeeded and no conflicts after snap -> allow placement"));
-                return true;
-            }
-            else
-            {
-                UE_LOG(LogTemp, Warning, TEXT("[Build][Server] Snap succeeded but still conflicts at snapped position -> deny"));
-                // optionally: log HitAfterSnap info for debugging
-                UE_LOG(LogTemp, Warning, TEXT("[Build][Server] AfterSnap blocked by Actor=%s Comp=%s Loc=%s"),
-                       *GetNameSafe(HitAfterSnap.GetActor()),
-                       *GetNameSafe(HitAfterSnap.GetComponent()),
-                       *HitAfterSnap.ImpactPoint.ToString());
-                return false;
-            }
-        }
-        else
-        {
-            UE_LOG(LogTemp, Log, TEXT("[Build][Server] Snap attempt failed for %s"), *GetNameSafe(BlockActor));
-            return false;
-        }
-    }
-
-    // not a buildable we can snap to -> deny placement
     return false;
 }
 
