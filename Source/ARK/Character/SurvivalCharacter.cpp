@@ -2183,7 +2183,6 @@ void ASurvivalCharacter::ApplySkillPoints(const EStatEnum& Stat)
 
 void ASurvivalCharacter::PlaceBuildable_Implementation() const
 {
-	UE_LOG(LogTemp, Warning, TEXT("OnAttack called! HasAuthority: %s"), BuildingComponent->GetIsBuildModeEnabled() ? TEXT("True") : TEXT("False")); 
 	if (BuildingComponent->GetIsBuildModeEnabled())
 	{
 		BuildingComponent->OnSpawnBuild(BuildingComponent->GetBuildTransform(), FirstPersonCameraComponent->GetForwardVector(), FirstPersonCameraComponent->GetComponentRotation());

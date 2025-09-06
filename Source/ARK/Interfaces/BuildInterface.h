@@ -6,6 +6,7 @@
 #include "UObject/Interface.h"
 #include "BuildInterface.generated.h"
 
+class UBoxComponent;
 class ABuildableMaster;
 // This class does not need to be modified.
 UINTERFACE(MinimalAPI)
@@ -25,4 +26,7 @@ class ARK_API IBuildInterface
 public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "BuildingSystemInterface")
 	ABuildableMaster* GetBuildMasterRef();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "BuildingSystemInterface")
+	TArray<UBoxComponent*> GetBoxes();
 };

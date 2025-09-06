@@ -81,4 +81,13 @@ private:
 	bool CheckForOverlap() const;
 
 	bool BuildPlacementCheck(const int32 StructureID, const FVector& ClientCameraVector, const FRotator& ClientCameraRotation);
+
+	// 建筑吸附
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "BuildingSystem", meta = (AllowPrivateAccess = "true"))
+	UPrimitiveComponent* HitComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "BuildingSystem", meta = (AllowPrivateAccess = "true"))
+	AActor* HitActor;
+	
+	std::pair<bool, FTransform> GetSnappingPoints();
 };
