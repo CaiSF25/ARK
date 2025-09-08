@@ -7,6 +7,7 @@
 #include "BuildingComponent.generated.h"
 
 
+class UDataTable;
 class UCameraComponent;
 class ABuildableMaster;
 
@@ -26,6 +27,9 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 StructureIDDebug;
+	
 	bool GetIsBuildModeEnabled() const { return bIsBuildModeEnabled; }
 
 	void SetIsBuildModeEnabled(const bool InValue) { bIsBuildModeEnabled = InValue; }
@@ -43,6 +47,9 @@ private:
 	// 组件
 	UPROPERTY()
 	UCameraComponent* SurvivalCamera = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "BuildingSystem", meta = (AllowPrivateAccess = "true"))
+	UDataTable* StructureDataTable;
 	
 	// 预览模式
 	bool bIsBuildModeEnabled = false;

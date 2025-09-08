@@ -4,6 +4,8 @@
 #include "Engine/DataTable.h"
 #include "BuildableInfo.generated.h"
 
+class ABuildableMaster;
+
 USTRUCT(BlueprintType)
 struct FBuildableInfo : public FTableRowBase
 {
@@ -26,4 +28,13 @@ struct FBuildableInfo : public FTableRowBase
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="BuildingSystem")
 	bool DoCellingCheck = false;
+};
+
+USTRUCT(BlueprintType)
+struct FBuildTableInfo : public FTableRowBase
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="BuildingSystem")
+	TSubclassOf<ABuildableMaster> BuildClass;
 };

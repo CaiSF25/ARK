@@ -136,6 +136,22 @@ void UBuildingComponent::SpawnBuildPreview(int32 StructureID)
 	// if (!OwnerPawn) return;
 	// if (!OwnerPawn->IsLocallyControlled()) return;
 
+	if (!StructureDataTable) return;
+	
+	const FName RowName = FName(*FString::FromInt(StructureIDDebug));
+	static const FString ContextString(TEXT("BuildingSystem"));
+
+	const auto Row = StructureDataTable->FindRow<FBuildTableInfo>(
+		RowName,
+		ContextString,
+		true
+		);
+
+	if (Row)
+	{
+		BuildingClass = Row->BuildClass;
+	}
+
 	FActorSpawnParameters Params;
 	Params.Owner = GetOwner();
 	Params.Instigator = OwnerPawn;
