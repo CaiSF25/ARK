@@ -13,7 +13,7 @@ AFoundationMaster::AFoundationMaster()
 	
 	BuildableInfo.TraceChannel = ECC_GameTraceChannel2;
 	Foundation = CreateDefaultSubobject<UBoxComponent>(TEXT("Foundation"));
-	Foundation->SetupAttachment(RootComponent);
+	Foundation->SetupAttachment(StaticMesh);
 	Foundation->SetBoxExtent(FVector(150, 150, 85));
 	Foundation->SetRelativeLocation(FVector(0, 300, 0));
 	Foundation->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
@@ -23,7 +23,7 @@ AFoundationMaster::AFoundationMaster()
 	Foundation->SetCollisionResponseToChannel(ECC_GameTraceChannel2, ECR_Block);
 	
 	Foundation1 = CreateDefaultSubobject<UBoxComponent>(TEXT("Foundation1"));
-	Foundation1->SetupAttachment(RootComponent);
+	Foundation1->SetupAttachment(StaticMesh);
 	Foundation1->SetBoxExtent(FVector(150, 150, 85));
 	Foundation1->SetRelativeLocation(FVector(0, -300, 0));
 	Foundation1->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
@@ -33,7 +33,7 @@ AFoundationMaster::AFoundationMaster()
 	Foundation1->SetCollisionResponseToChannel(ECC_GameTraceChannel2, ECR_Block);
 
 	Foundation2 = CreateDefaultSubobject<UBoxComponent>(TEXT("Foundation2"));
-	Foundation2->SetupAttachment(RootComponent);
+	Foundation2->SetupAttachment(StaticMesh);
 	Foundation2->SetBoxExtent(FVector(150, 150, 85));
 	Foundation2->SetRelativeLocation(FVector(300, 0, 0));
 	Foundation2->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
@@ -43,7 +43,7 @@ AFoundationMaster::AFoundationMaster()
 	Foundation2->SetCollisionResponseToChannel(ECC_GameTraceChannel2, ECR_Block);
 
 	Foundation3 = CreateDefaultSubobject<UBoxComponent>(TEXT("Foundation3"));
-	Foundation3->SetupAttachment(RootComponent);
+	Foundation3->SetupAttachment(StaticMesh);
 	Foundation3->SetBoxExtent(FVector(150, 150, 85));
 	Foundation3->SetRelativeLocation(FVector(-300, 0, 0));
 	Foundation3->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
@@ -53,7 +53,7 @@ AFoundationMaster::AFoundationMaster()
 	Foundation3->SetCollisionResponseToChannel(ECC_GameTraceChannel2, ECR_Block);
 
 	Wall = CreateDefaultSubobject<UBoxComponent>(TEXT("Wall"));
-	Wall->SetupAttachment(RootComponent);
+	Wall->SetupAttachment(StaticMesh);
 	Wall->SetBoxExtent(FVector(150, 20, 150));
 	Wall->SetRelativeLocation(FVector(0, 152, 235));
 	Wall->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
@@ -63,7 +63,7 @@ AFoundationMaster::AFoundationMaster()
 	Wall->SetCollisionResponseToChannel(ECC_GameTraceChannel14, ECR_Block);
 
 	Wall1 = CreateDefaultSubobject<UBoxComponent>(TEXT("Wall1"));
-	Wall1->SetupAttachment(RootComponent);
+	Wall1->SetupAttachment(StaticMesh);
 	Wall1->SetBoxExtent(FVector(150, 20, 150));
 	Wall1->SetRelativeLocation(FVector(0, -152, 235));
 	Wall1->SetRelativeRotation(FRotator(0, 180, 0));
@@ -74,7 +74,7 @@ AFoundationMaster::AFoundationMaster()
 	Wall1->SetCollisionResponseToChannel(ECC_GameTraceChannel14, ECR_Block);
 
 	Wall2 = CreateDefaultSubobject<UBoxComponent>(TEXT("Wall2"));
-	Wall2->SetupAttachment(RootComponent);
+	Wall2->SetupAttachment(StaticMesh);
 	Wall2->SetBoxExtent(FVector(150, 20, 150));
 	Wall2->SetRelativeLocation(FVector(-152, 0, 235));
 	Wall2->SetRelativeRotation(FRotator(0, 90, 0));
@@ -85,7 +85,7 @@ AFoundationMaster::AFoundationMaster()
 	Wall2->SetCollisionResponseToChannel(ECC_GameTraceChannel14, ECR_Block);
 
 	Wall3 = CreateDefaultSubobject<UBoxComponent>(TEXT("Wall3"));
-	Wall3->SetupAttachment(RootComponent);
+	Wall3->SetupAttachment(StaticMesh);
 	Wall3->SetBoxExtent(FVector(150, 20, 150));
 	Wall3->SetRelativeLocation(FVector(152, 0, 235));
 	Wall3->SetRelativeRotation(FRotator(0, -90, 0));

@@ -10,7 +10,7 @@ AWallMaster::AWallMaster()
 	BuildableInfo.TraceChannel = ECC_GameTraceChannel14;
 
 	Ceiling = CreateDefaultSubobject<UBoxComponent>(TEXT("Ceiling"));
-	Ceiling->SetupAttachment(RootComponent);
+	Ceiling->SetupAttachment(StaticMesh);
 	Ceiling->SetBoxExtent(FVector(150, 150, 10));
 	Ceiling->SetRelativeLocation(FVector(0, -152, 152));
 	Ceiling->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
@@ -20,7 +20,7 @@ AWallMaster::AWallMaster()
 	Ceiling->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Block);
 
 	Ceiling1 = CreateDefaultSubobject<UBoxComponent>(TEXT("Ceiling1"));
-	Ceiling1->SetupAttachment(RootComponent);
+	Ceiling1->SetupAttachment(StaticMesh);
 	Ceiling1->SetBoxExtent(FVector(150, 150, 10));
 	Ceiling1->SetRelativeLocation(FVector(0, 148, 152));
 	Ceiling1->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);

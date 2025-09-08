@@ -12,7 +12,7 @@ ACeilingMaster::ACeilingMaster()
 	OverlapBox->SetRelativeScale3D(FVector(3.f, 3.f, 0.3f));
 
 	Ceiling = CreateDefaultSubobject<UBoxComponent>(TEXT("Ceiling"));
-	Ceiling->SetupAttachment(RootComponent);
+	Ceiling->SetupAttachment(StaticMesh);
 	Ceiling->SetBoxExtent(FVector(100, 100, 10));
 	Ceiling->SetRelativeLocation(FVector(0, 300, 0));
 	Ceiling->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
@@ -22,7 +22,7 @@ ACeilingMaster::ACeilingMaster()
 	Ceiling->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Block);
 
 	Ceiling1 = CreateDefaultSubobject<UBoxComponent>(TEXT("Ceiling1"));
-	Ceiling1->SetupAttachment(RootComponent);
+	Ceiling1->SetupAttachment(StaticMesh);
 	Ceiling1->SetBoxExtent(FVector(100, 100, 10));
 	Ceiling1->SetRelativeLocation(FVector(0, -300, 0));
 	Ceiling1->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
@@ -32,7 +32,7 @@ ACeilingMaster::ACeilingMaster()
 	Ceiling1->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Block);
 
 	Ceiling2 = CreateDefaultSubobject<UBoxComponent>(TEXT("Ceiling2"));
-	Ceiling2->SetupAttachment(RootComponent);
+	Ceiling2->SetupAttachment(StaticMesh);
 	Ceiling2->SetBoxExtent(FVector(100, 100, 10));
 	Ceiling2->SetRelativeLocation(FVector(300, 0, 0));
 	Ceiling2->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
@@ -42,7 +42,7 @@ ACeilingMaster::ACeilingMaster()
 	Ceiling2->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Block);
 
 	Ceiling3 = CreateDefaultSubobject<UBoxComponent>(TEXT("Ceiling3"));
-	Ceiling3->SetupAttachment(RootComponent);
+	Ceiling3->SetupAttachment(StaticMesh);
 	Ceiling3->SetBoxExtent(FVector(100, 100, 10));
 	Ceiling3->SetRelativeLocation(FVector(-300, 0, 0));
 	Ceiling3->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
@@ -52,7 +52,7 @@ ACeilingMaster::ACeilingMaster()
 	Ceiling3->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Block);
 
 	Wall = CreateDefaultSubobject<UBoxComponent>(TEXT("Wall"));
-	Wall->SetupAttachment(RootComponent);
+	Wall->SetupAttachment(StaticMesh);
 	Wall->SetBoxExtent(FVector(150, 10, 150));
 	Wall->SetRelativeLocation(FVector(152, 0, 157));
 	Wall->SetRelativeRotation(FRotator(0, -90, 0));
@@ -63,7 +63,7 @@ ACeilingMaster::ACeilingMaster()
 	Wall->SetCollisionResponseToChannel(ECC_GameTraceChannel14, ECR_Block);
 
 	Wall1 = CreateDefaultSubobject<UBoxComponent>(TEXT("Wall1"));
-	Wall1->SetupAttachment(RootComponent);
+	Wall1->SetupAttachment(StaticMesh);
 	Wall1->SetBoxExtent(FVector(150, 10, 150));
 	Wall1->SetRelativeLocation(FVector(-152, 0, 157));
 	Wall1->SetRelativeRotation(FRotator(0, 90, 0));
@@ -74,7 +74,7 @@ ACeilingMaster::ACeilingMaster()
 	Wall1->SetCollisionResponseToChannel(ECC_GameTraceChannel14, ECR_Block);
 
 	Wall2 = CreateDefaultSubobject<UBoxComponent>(TEXT("Wall2"));
-	Wall2->SetupAttachment(RootComponent);
+	Wall2->SetupAttachment(StaticMesh);
 	Wall2->SetBoxExtent(FVector(150, 10, 150));
 	Wall2->SetRelativeLocation(FVector(0, -152, 157));
 	Wall2->SetRelativeRotation(FRotator(0, 180, 0));
@@ -85,7 +85,7 @@ ACeilingMaster::ACeilingMaster()
 	Wall2->SetCollisionResponseToChannel(ECC_GameTraceChannel14, ECR_Block);
 
 	Wall3 = CreateDefaultSubobject<UBoxComponent>(TEXT("Wall3"));
-	Wall3->SetupAttachment(RootComponent);
+	Wall3->SetupAttachment(StaticMesh);
 	Wall3->SetBoxExtent(FVector(150, 10, 150));
 	Wall3->SetRelativeLocation(FVector(0, 148, 157));
 	Wall3->SetRelativeRotation(FRotator(0, 0, 0));
@@ -108,5 +108,4 @@ TArray<UBoxComponent*> ACeilingMaster::GetBoxes_Implementation()
 	FoundBoxes.Add(Wall2);
 	FoundBoxes.Add(Wall3);
 	return FoundBoxes;
-	
 }
