@@ -116,7 +116,7 @@ void UBuildingComponent::BuildMode(const int32 StructureID)
 		{
 			BuildTransform = Result.second;
 		}
-		SetPreviewColor(!CheckForOverlap());
+		SetPreviewColor(!CheckForOverlap() && bHit);
 	}
 	else
 	{
@@ -272,12 +272,6 @@ void UBuildingComponent::SpawnBuild(const FTransform& Transform, const FVector& 
 
 bool UBuildingComponent::CheckForOverlap() const
 {
-	if (!IsValid(BuildPreview))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("CheckForOverlap: BuildPreview invalid"));
-		return true; // 保守处理：有问题时当做阻挡
-	}
-	
 	FBuildableInfo BuildableInfo = BuildPreview->GetBuildableInfo();
 
 	FVector StaticMeshOrigin;
@@ -318,31 +312,15 @@ bool UBuildingComponent::BuildPlacementCheck(const int32 StructureID, const FVec
 	const FRotator& ClientCameraRotation)
 {
 	UWorld* World = GetWorld();
-    if (!World) 
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BuildPlacementCheck: No World"));
-        return false;
-    }
+    if (!World) return false;
 
-    if (!GetOwner() || !GetOwner()->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass()))
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BuildPlacementCheck: Owner invalid or doesn't implement interface"));
-        return false;
-    }
+    if (!GetOwner() || !GetOwner()->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass())) return false;
 
     ASurvivalCharacter* SurvivalCharacter = Cast<ASurvivalCharacter>(ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(GetOwner()));
-    if (!SurvivalCharacter)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BuildPlacementCheck: SurvivalCharacter cast failed"));
-        return false;
-    }
+    if (!SurvivalCharacter) return false;
 
     UCameraComponent* FirstPersonCamera = SurvivalCharacter->GetFirstPersonCamera();
-    if (!FirstPersonCamera) 
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BuildPlacementCheck: No camera"));
-        return false;
-    }
+    if (!FirstPersonCamera) return false;
 
     FVector CameraLocation = FirstPersonCamera->GetComponentLocation();
 
@@ -350,11 +328,7 @@ bool UBuildingComponent::BuildPlacementCheck(const int32 StructureID, const FVec
     const float BuildDistanceFar = 1000.f;
 	
     FVector Forward = ClientCameraVector.GetSafeNormal();
-    if (Forward.IsNearlyZero())
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BuildPlacementCheck: ClientCameraVector is zero"));
-        return false;
-    }
+    if (Forward.IsNearlyZero()) return false;
 
     FVector StartLocation = CameraLocation + Forward * BuildDistanceClose;
     FVector EndLocation = CameraLocation + Forward * BuildDistanceFar;
@@ -362,27 +336,12 @@ bool UBuildingComponent::BuildPlacementCheck(const int32 StructureID, const FVec
     if (!IsValid(BuildPreview))
     {
         SpawnBuildPreview(StructureID);
-        if (!IsValid(BuildPreview))
-        {
-            UE_LOG(LogTemp, Warning, TEXT("SpawnBuildPreview failed"));
-            return false;
-        }
+        if (!IsValid(BuildPreview)) return false;
     	
         BuildPreview->SetActorEnableCollision(false);
     }
 	
-	ECollisionChannel TraceChannel = ECC_Visibility;
-	if (IsValid(BuildPreview))
-	{
-		TraceChannel = BuildPreview->GetBuildableInfo().TraceChannel;
-	}
-	else if (BuildingClass)
-	{
-		if (ABuildableMaster* CDO = Cast<ABuildableMaster>(BuildingClass->GetDefaultObject()))
-		{
-			TraceChannel = CDO->GetBuildableInfo().TraceChannel;
-		}
-	}
+	ECollisionChannel TraceChannel = BuildPreview->GetBuildableInfo().TraceChannel;
 	
     FHitResult OutHit;
     FCollisionQueryParams TraceParams(SCENE_QUERY_STAT(BuildPlacementTrace), true);
