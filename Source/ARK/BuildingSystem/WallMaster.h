@@ -16,4 +16,16 @@ class ARK_API AWallMaster : public ABuildableMaster
 
 public:
 	AWallMaster();
+
+protected:
+	// 屋顶吸附
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* Ceiling;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* Ceiling1;
+
+public:
+	// 接口实现
+	virtual TArray<UBoxComponent*> GetBoxes_Implementation() override;
 };
