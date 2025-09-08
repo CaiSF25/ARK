@@ -94,6 +94,8 @@ private:
 
 	bool BuildPlacementCheck(const int32 StructureID, const FVector& ClientCameraVector, const FRotator& ClientCameraRotation);
 
+	bool IsBuildFloating() const;
+	
 	// 建筑吸附
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "BuildingSystem", meta = (AllowPrivateAccess = "true"))
 	UPrimitiveComponent* HitComponent;

@@ -67,20 +67,26 @@ void UBuildingComponent::ClientLaunchBuildMode_Implementation(int32 StructureID)
 
 void UBuildingComponent::BuildMode(const int32 StructureID)
 {
-	if (!SurvivalCamera) return;
-	
 	UWorld* World = GetWorld();
-	if (!World) return;
+	if (!World || !IsValid(SurvivalCamera)) return;
 
 	if (!IsValid(BuildPreview))
 	{
 		SpawnBuildPreview(StructureID);
+		if (!IsValid(BuildPreview)) return;
+		BuildPreview->SetActorEnableCollision(false);
 	}
+
+	// 清除碰撞指针
+	HitActor = nullptr;
+	HitComponent = nullptr;
 
 	constexpr int32 BuildDistanceClose = 350;
 	constexpr int32 BuildDistanceFar = 1000;
 
-	FVector Forward = SurvivalCamera->GetForwardVector();
+	FVector Forward = SurvivalCamera->GetForwardVector().GetSafeNormal();
+	if (Forward.IsNearlyZero()) return;
+	
 	FVector Location = SurvivalCamera->GetComponentLocation();
 	FRotator Rotation = SurvivalCamera->GetComponentRotation();
 	
@@ -88,10 +94,10 @@ void UBuildingComponent::BuildMode(const int32 StructureID)
 	FVector End = Forward * BuildDistanceFar + Location;
 	
 	FHitResult OutHit;
-	FCollisionQueryParams TraceParams;
-	TraceParams.AddIgnoredActor(BuildPreview);
+	FCollisionQueryParams TraceParams(SCENE_QUERY_STAT(BuildPreviewTrace), true);
+	if (IsValid(BuildPreview)) TraceParams.AddIgnoredActor(BuildPreview);
 	
-	bool bHit = World->LineTraceSingleByChannel(
+	const bool bHit = World->LineTraceSingleByChannel(
 		OutHit,
 		Start,
 		End,
@@ -109,18 +115,22 @@ void UBuildingComponent::BuildMode(const int32 StructureID)
 	FRotator DesiredRotation(0.f, Rotation.Yaw + 90.f, 0.f);
 	BuildTransform = FTransform(DesiredRotation, DesiredLocation);
 	
-	if (IsValid(BuildPreview))
+	std::pair<bool, FTransform> Result = GetSnappingPoints();
+	if (Result.first)
 	{
-		std::pair<bool, FTransform> Result = GetSnappingPoints();
-		if (Result.first)
+		BuildTransform = Result.second;
+		if (!BuildPreview->GetBuildableInfo().DoFloatCheck)
 		{
-			BuildTransform = Result.second;
+			SetPreviewColor(!CheckForOverlap() && bHit);
 		}
-		SetPreviewColor(!CheckForOverlap() && bHit);
+		else
+		{
+			SetPreviewColor(!CheckForOverlap() && bHit && IsBuildFloating());
+		}
 	}
 	else
 	{
-		SpawnBuildPreview(StructureID);
+		SetPreviewColor(!CheckForOverlap() && bHit && IsBuildFloating());
 	}
 
 	StartBuildLoop(StructureID);
@@ -324,46 +334,74 @@ bool UBuildingComponent::BuildPlacementCheck(const int32 StructureID, const FVec
 
     FVector CameraLocation = FirstPersonCamera->GetComponentLocation();
 
-    const float BuildDistanceClose = 350.f;
-    const float BuildDistanceFar = 1000.f;
+	// compute trace
+	constexpr float BuildDistanceClose = 350.f;
+	constexpr float BuildDistanceFar = 1000.f;
 	
     FVector Forward = ClientCameraVector.GetSafeNormal();
     if (Forward.IsNearlyZero()) return false;
 
     FVector StartLocation = CameraLocation + Forward * BuildDistanceClose;
     FVector EndLocation = CameraLocation + Forward * BuildDistanceFar;
-	
+
+	// 确保BuildPreview存在，以保证可以获取到碰撞通道
     if (!IsValid(BuildPreview))
     {
         SpawnBuildPreview(StructureID);
         if (!IsValid(BuildPreview)) return false;
-    	
         BuildPreview->SetActorEnableCollision(false);
     }
-	
+
+	// 碰撞通道
 	ECollisionChannel TraceChannel = BuildPreview->GetBuildableInfo().TraceChannel;
 	
     FHitResult OutHit;
     FCollisionQueryParams TraceParams(SCENE_QUERY_STAT(BuildPlacementTrace), true);
     TraceParams.AddIgnoredActor(GetOwner());
+	if (IsValid(BuildPreview)) TraceParams.AddIgnoredActor(BuildPreview);
 
-    bool bHit = World->LineTraceSingleByChannel(OutHit, StartLocation, EndLocation, TraceChannel, TraceParams);
+    const bool bHit = World->LineTraceSingleByChannel(OutHit, StartLocation, EndLocation, TraceChannel, TraceParams);
+	if (!bHit) return false;
+	
+	HitActor = OutHit.GetActor();
+	HitComponent = OutHit.GetComponent();
 
     FVector DesiredLocation = bHit ? OutHit.ImpactPoint : EndLocation;
     FRotator DesiredRotation(0.f, ClientCameraRotation.Yaw + 90.f, 0.f);
     BuildTransform = FTransform(DesiredRotation, DesiredLocation);
 
-    if (IsValid(BuildPreview))
+	// 附着
+	std::pair<bool, FTransform> Result = GetSnappingPoints();
+    if (Result.first)
     {
-        BuildPreview->SetActorTransform(BuildTransform);
+        BuildTransform = Result.second;
+        if (BuildPreview->GetBuildableInfo().DoFloatCheck)
+        {
+            return !CheckForOverlap() && IsBuildFloating();
+        }
+    	return !CheckForOverlap();
     }
 
-    if (bHit && IsValid(BuildPreview))
-    {
-        return !CheckForOverlap();
-    }
+	return !CheckForOverlap() && IsBuildFloating();
+}
 
-    return false;
+bool UBuildingComponent::IsBuildFloating() const
+{
+	UWorld* World = GetWorld();
+	if (!World) return false;
+	
+	FHitResult OutHit;
+	FCollisionQueryParams TraceParams;
+	TraceParams.AddIgnoredActor(BuildPreview);
+	
+	bool bHit = World->LineTraceSingleByChannel(
+		OutHit,
+		BuildTransform.GetLocation(),
+		BuildTransform.GetLocation() - FVector(0, 0, 50),
+		ECC_Visibility,
+		TraceParams
+		);
+	return bHit;
 }
 
 std::pair<bool, FTransform> UBuildingComponent::GetSnappingPoints()

@@ -9,6 +9,7 @@
 AFoundationMaster::AFoundationMaster()
 {
 	BuildableInfo.UseCustomOverlap = true;
+	BuildableInfo.DoFloatCheck = true;
 	
 	BuildableInfo.TraceChannel = ECC_GameTraceChannel2;
 	Foundation = CreateDefaultSubobject<UBoxComponent>(TEXT("Foundation"));
