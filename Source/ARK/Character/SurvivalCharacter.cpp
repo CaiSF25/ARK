@@ -16,6 +16,7 @@
 #include "ARK/HarvestingSystem/GroundItemMaster.h"
 #include "ARK/Interfaces/ArmorItemInterface.h"
 #include "ARK/Interfaces/GroundItemInterface.h"
+#include "ARK/Interfaces/InteractableInterface.h"
 #include "ARK/Items/ArmorMaster.h"
 #include "ARK/Items/Equipables/FirstPersonEquipable.h"
 #include "ARK/Structures/ConsumableStructs.h"
@@ -25,6 +26,7 @@
 #include "ARK/Structures/ResourceStructure.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
@@ -238,12 +240,66 @@ void ASurvivalCharacter::Interact()
 {
 	if (HasAuthority())
 	{
+		CameraRotation = FirstPersonCameraComponent->GetComponentRotation();
 		OnOverlapGroundItems();
 	}
 	else
 	{
-		ServerInteract();
+		ServerInteract(FirstPersonCameraComponent->GetComponentRotation());
 	}
+}
+
+void ASurvivalCharacter::LineTraceStorageBox()
+{
+	std::pair<AActor*, bool> Res = LineTrace(UInteractableInterface::StaticClass());
+	if (Res.second)
+	{
+		IInteractableInterface::Execute_InteractEvent(Res.first, this);
+	}
+}
+
+void ASurvivalCharacter::OnLineTraceStorageBox()
+{
+	if (HasAuthority())
+	{
+		LineTraceStorageBox();
+	}
+	else
+	{
+		ServerLineTraceStorageBox();
+	}
+}
+
+std::pair<AActor*, bool> ASurvivalCharacter::LineTrace(TSubclassOf<UInterface> Interface)
+{
+	UWorld* World = GetWorld();
+	if (!World) return {nullptr, false};
+	
+	float InteractDistance = 280.f;
+	
+	FVector Start = FirstPersonCameraComponent->GetComponentLocation();
+	FVector End = UKismetMathLibrary::GetForwardVector(CameraRotation) * InteractDistance + Start;
+	
+	ECollisionChannel TraceChannel = ECC_Camera;
+	
+	FHitResult OutHit;
+	FCollisionQueryParams TraceParams(SCENE_QUERY_STAT(InteractTrace), true);
+	TraceParams.AddIgnoredActor(this);
+
+	const bool bHit = World->LineTraceSingleByChannel(OutHit, Start, End, TraceChannel, TraceParams);
+	
+	if (bHit)
+	{
+		bool ImplementsInterface = OutHit.GetActor()->GetClass()->ImplementsInterface(Interface);
+		return {OutHit.GetActor(), ImplementsInterface};
+	}
+		
+	return {nullptr, false};
+}
+
+void ASurvivalCharacter::ServerLineTraceStorageBox_Implementation()
+{
+	LineTraceStorageBox();
 }
 
 void ASurvivalCharacter::ServerReportMoveInput_Implementation(bool bHasInput)
@@ -410,8 +466,9 @@ void ASurvivalCharacter::OverlapGroundItems()
 			const TSubclassOf<AActor> ClassFilter = nullptr;
 
 			const TArray<AActor*> ActorsToIgnore = { this };
-
-			if (TArray<AActor*> OutActors; UKismetSystemLibrary::SphereOverlapActors(
+			
+			TArray<AActor*> OutActors;
+			const bool bOverlap = UKismetSystemLibrary::SphereOverlapActors(
 				this,
 				GetActorLocation(),
 				70.f,
@@ -419,7 +476,9 @@ void ASurvivalCharacter::OverlapGroundItems()
 				ClassFilter,
 				ActorsToIgnore, 
 				OutActors
-				))
+				);
+
+			if (bOverlap && OutActors[0]->GetClass()->ImplementsInterface(UGroundItemInterface::StaticClass()))
 			{
 				HarvestGroundItem(OutActors[0]);
 				OnHarvestMontage();
@@ -428,20 +487,8 @@ void ASurvivalCharacter::OverlapGroundItems()
 			{
 				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, "No Hit");
 				bIsHarvesting = false;
+				OnLineTraceStorageBox();
 			}
-
-			const UWorld* World = GetWorld();
-			/*DrawDebugSphere(
-				World,
-				GetActorLocation(),
-				70.f,
-				12,
-				FColor::Red,
-				false,
-				3,
-				0,
-				2
-				);*/
 		}
 	}
 }
@@ -1818,8 +1865,9 @@ void ASurvivalCharacter::ServerSpawnEquipableThirdPerson_Implementation(TSubclas
 	SpawnEquipableThirdPerson(Class, ItemInfo, LocalEquippedIndex);
 }
 
-void ASurvivalCharacter::ServerInteract_Implementation()
+void ASurvivalCharacter::ServerInteract_Implementation(const FRotator& InCameraRotation)
 {
+	CameraRotation = InCameraRotation;
 	OnOverlapGroundItems();
 }
 

@@ -193,6 +193,8 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
 	UInputAction* SprintAction;
 
+	FRotator CameraRotation;
+
 	void Move(const FInputActionValue& Value);
 
 	void Look(const FInputActionValue& Value);
@@ -207,7 +209,16 @@ private:
 	void Interact();
 
 	UFUNCTION(Server, Reliable)
-	void ServerInteract();
+	void ServerInteract(const FRotator& InCameraRotation);
+
+	UFUNCTION(Server, Reliable)
+	void ServerLineTraceStorageBox();
+
+	void LineTraceStorageBox();
+
+	void OnLineTraceStorageBox();
+
+	std::pair<AActor*, bool> LineTrace(TSubclassOf<UInterface> Interface);
 
 	// 加速
 	float SprintSpeed = 800.f;
