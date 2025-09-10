@@ -28,7 +28,7 @@ protected:
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 StructureIDDebug;
+	int32 StructureIDDebug = 4;
 	
 	bool GetIsBuildModeEnabled() const { return bIsBuildModeEnabled; }
 

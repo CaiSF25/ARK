@@ -42,6 +42,13 @@ protected:
 	UFUNCTION()
 	void TimelineProgress(float Value);
 
+	// 门初始属性和开关门设置
+	float InitialYaw = 0.f;
+	bool bHasInitialYaw = false;
+
+	UPROPERTY(EditAnywhere, Category="Door")
+	float DoorOpenAngle = -90.f;
+
 private:
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastSetDoorRotation(const bool OpenOrClose);

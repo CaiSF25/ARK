@@ -30,6 +30,9 @@ void ADoorMaster::BeginPlay()
 {
 	Super::BeginPlay();
 
+	InitialYaw = GetActorRotation().Yaw;
+	bHasInitialYaw = true;
+
 	if (DoorCurve && DoorTimeline)
 	{
 		FOnTimelineFloat ProgressFunc;
@@ -43,13 +46,24 @@ void ADoorMaster::BeginPlay()
 
 void ADoorMaster::OnRep_IsDoorOpen()
 {
-	MulticastSetDoorRotation(bIsDoorOpen);
+	if (!bHasInitialYaw)
+	{
+		InitialYaw = GetActorRotation().Yaw;
+		bHasInitialYaw = true;
+	}
+
+	const float TargetYaw = InitialYaw + (bIsDoorOpen ? DoorOpenAngle : 0.f);
+	FRotator R = GetActorRotation();
+	R.Yaw = TargetYaw;
+	SetActorRotation(R);
 }
 
 void ADoorMaster::TimelineProgress(float Value)
 {
+	float NewYaw = FMath::Lerp(InitialYaw, InitialYaw + DoorOpenAngle, Value);
+	
 	FRotator R = GetActorRotation();
-	R.Yaw = Value;
+	R.Yaw = NewYaw;
 	SetActorRotation(R);
 }
 

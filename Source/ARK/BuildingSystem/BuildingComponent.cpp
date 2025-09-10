@@ -265,7 +265,7 @@ void UBuildingComponent::SpawnBuild(const FTransform& Transform, const FVector& 
 {
 	BuildTransform = Transform;
 
-	if (BuildPlacementCheck(0, ClientCameraVector, ClientCameraRotation))
+	if (BuildPlacementCheck(StructureIDDebug, ClientCameraVector, ClientCameraRotation))
 	{
 		SpawnBuildable(Transform);
 	}
