@@ -16,6 +16,13 @@ ADoorFrame::ADoorFrame()
 	DoorBox->SetCollisionObjectType(ECC_WorldDynamic);
 	DoorBox->SetCollisionResponseToAllChannels(ECR_Ignore);
 	DoorBox->SetCollisionResponseToChannel(ECC_GameTraceChannel9, ECR_Block);
+
+	// 火炬
+	TorchBox->SetRelativeLocation(FVector(-112, 10, 0));
+	TorchBox1->SetRelativeRotation(FRotator(0, 0, 0));
+	
+	TorchBox1->SetRelativeLocation(FVector(112, 10, 0));
+	TorchBox1->SetRelativeRotation(FRotator(0, 0, 0));
 }
 
 TArray<UBoxComponent*> ADoorFrame::GetBoxes_Implementation()
@@ -24,5 +31,9 @@ TArray<UBoxComponent*> ADoorFrame::GetBoxes_Implementation()
 	FoundBoxes.Add(Ceiling);
 	FoundBoxes.Add(Ceiling1);
 	FoundBoxes.Add(DoorBox);
+	FoundBoxes.Add(TriangleCeiling);
+	FoundBoxes.Add(TriangleCeiling1);
+	FoundBoxes.Add(TorchBox);
+	FoundBoxes.Add(TorchBox1);
 	return FoundBoxes;
 }

@@ -10,6 +10,8 @@
 #include "Components/BoxComponent.h"
 #include "Kismet/GameplayStatics.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogBuildingComponent, Log, All);
+
 UBuildingComponent::UBuildingComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -40,15 +42,15 @@ void UBuildingComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 }
 
 void UBuildingComponent::OnSpawnBuild(const FTransform& Transform, const FVector& ClientCameraVector,
-	const FRotator& ClientCameraRotation)
+	const FRotator& ClientCameraRotation, int32 StructureIDTemp)
 {
 	if (GetOwner()->HasAuthority())
 	{
-		SpawnBuild(Transform, ClientCameraVector, ClientCameraRotation);
+		SpawnBuild(Transform, ClientCameraVector, ClientCameraRotation, StructureIDTemp);
 	}
 	else
 	{
-		ServerSpawnBuild(Transform, ClientCameraVector, ClientCameraRotation);
+		ServerSpawnBuild(Transform, ClientCameraVector, ClientCameraRotation, StructureIDTemp);
 	}
 }
 
@@ -61,7 +63,7 @@ void UBuildingComponent::ClientLaunchBuildMode_Implementation(int32 StructureID)
 	else
 	{
 		bIsBuildModeEnabled = true;
-		BuildMode(StructureID);
+		BuildMode(StructureIDDebug);
 	}
 }
 
@@ -116,24 +118,38 @@ void UBuildingComponent::BuildMode(const int32 StructureID)
 	BuildTransform = FTransform(DesiredRotation, DesiredLocation);
 	
 	std::pair<bool, FTransform> Result = GetSnappingPoints();
-	if (Result.first)
+	const bool bSnapped = Result.first;
+	if (bSnapped)
 	{
 		BuildTransform = Result.second;
-		if (!BuildPreview->GetBuildableInfo().DoFloatCheck)
-		{
-			SetPreviewColor(!CheckForOverlap() && bHit);
-		}
-		else
-		{
-			SetPreviewColor(!CheckForOverlap() && bHit && IsBuildFloating());
-		}
 	}
-	else
-	{
-		SetPreviewColor(!CheckForOverlap() && bHit && IsBuildFloating());
-	}
-
-	StartBuildLoop(StructureID);
+	const FBuildableInfo BuildInfo = BuildPreview->GetBuildableInfo();
+    const bool bDoFloatCheck = BuildInfo.DoFloatCheck;
+	
+    const bool bOverlap = CheckForOverlap();
+	
+    const bool bFloating = IsBuildFloating();
+	
+    bool bCanPlace = false;
+    if (bSnapped)
+    {
+        if (!bDoFloatCheck)
+        {
+            bCanPlace = !bOverlap && bHit;
+        }
+        else
+        {
+            bCanPlace = !bOverlap && bHit && bFloating;
+        }
+    }
+    else
+    {
+        bCanPlace = !bOverlap && bHit && bFloating;
+    }
+	
+    SetPreviewColor(bCanPlace);
+	
+    StartBuildLoop(StructureID);
 }
 
 
@@ -240,7 +256,7 @@ void UBuildingComponent::SetPreviewColor(const bool bCanPlace) const
 	BuildPreview->SetActorTransform(BuildTransform);
 }
 
-void UBuildingComponent::SpawnBuildable(const FTransform& Transform)
+void UBuildingComponent::SpawnBuildable(const FTransform& Transform, int32 BuildTemp)
 {
 	UWorld* World = GetWorld();
 	if (!World) return;
@@ -251,6 +267,20 @@ void UBuildingComponent::SpawnBuildable(const FTransform& Transform)
 	Params.Owner = GetOwner();
 	Params.Instigator = OwnerPawn;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	const FName RowName = FName(*FString::FromInt(BuildTemp));
+	static const FString ContextString(TEXT("BuildingSystem"));
+
+	const auto Row = StructureDataTable->FindRow<FBuildTableInfo>(
+		RowName,
+		ContextString,
+		true
+		);
+
+	if (Row)
+	{
+		BuildingClass = Row->BuildClass;
+	}
 	
 	ABuildableMaster* Preview = World->SpawnActor<ABuildableMaster>(BuildingClass, Transform, Params);
 	if (!Preview) return;
@@ -261,13 +291,14 @@ void UBuildingComponent::SpawnBuildable(const FTransform& Transform)
 	Preview->SetActorEnableCollision(true);
 }
 
-void UBuildingComponent::SpawnBuild(const FTransform& Transform, const FVector& ClientCameraVector, const FRotator& ClientCameraRotation)
+void UBuildingComponent::SpawnBuild(const FTransform& Transform, const FVector& ClientCameraVector, const FRotator& ClientCameraRotation, int32 StructureIDTemp)
 {
+	StructureIDDebug = StructureIDTemp;
 	BuildTransform = Transform;
 
-	if (BuildPlacementCheck(StructureIDDebug, ClientCameraVector, ClientCameraRotation))
+	if (BuildPlacementCheck(0, ClientCameraVector, ClientCameraRotation))
 	{
-		SpawnBuildable(Transform);
+		SpawnBuildable(Transform, StructureIDTemp);
 	}
 	else
 	{
@@ -425,8 +456,14 @@ std::pair<bool, FTransform> UBuildingComponent::GetSnappingPoints()
 	return {bFound, HitComponent->GetComponentTransform()};
 }
 
-void UBuildingComponent::ServerSpawnBuild_Implementation(const FTransform& Transform, const FVector& ClientCameraVector,
-                                                         const FRotator& ClientCameraRotation)
+void UBuildingComponent::ChangeBuildStructure()
 {
-	SpawnBuild(Transform, ClientCameraVector, ClientCameraRotation);
+	if (IsValid(BuildPreview)) BuildPreview->Destroy();
+	SpawnBuildPreview(StructureIDDebug);
+}
+
+void UBuildingComponent::ServerSpawnBuild_Implementation(const FTransform& Transform, const FVector& ClientCameraVector,
+                                                         const FRotator& ClientCameraRotation, int32 StructureIDTemp)
+{
+	SpawnBuild(Transform, ClientCameraVector, ClientCameraRotation, StructureIDTemp);
 }

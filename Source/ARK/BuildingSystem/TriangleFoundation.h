@@ -4,40 +4,49 @@
 
 #include "CoreMinimal.h"
 #include "BuildableMaster.h"
-#include "WallMaster.generated.h"
+#include "TriangleFoundation.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class ARK_API AWallMaster : public ABuildableMaster
+class ARK_API ATriangleFoundation : public ABuildableMaster
 {
 	GENERATED_BODY()
 
 public:
-	AWallMaster();
+	ATriangleFoundation();
 
 protected:
-	// 屋顶
+	// 地基
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	UBoxComponent* Ceiling;
+	UBoxComponent* Foundation;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	UBoxComponent* Ceiling1;
-
-	// 三角屋顶
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	UBoxComponent* TriangleCeiling;
+	UBoxComponent* Foundation1;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	UBoxComponent* TriangleCeiling1;
+	UBoxComponent* Foundation2;
 
-	// 火炬
+	// 三角地基
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	UBoxComponent* TorchBox;
+	UBoxComponent* TriangleFoundation;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	UBoxComponent* TorchBox1;
+	UBoxComponent* TriangleFoundation1;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* TriangleFoundation2;
+
+	// 墙
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* Wall;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* Wall1;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* Wall2;
 
 public:
 	// 接口实现

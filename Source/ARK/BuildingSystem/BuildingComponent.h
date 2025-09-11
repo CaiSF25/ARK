@@ -28,7 +28,7 @@ protected:
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 StructureIDDebug = 4;
+	int32 StructureIDDebug = 1;
 	
 	bool GetIsBuildModeEnabled() const { return bIsBuildModeEnabled; }
 
@@ -41,8 +41,12 @@ public:
 	void ClientLaunchBuildMode(int32 StructureID);
 
 	// 建造模式
-	void OnSpawnBuild(const FTransform& Transform, const FVector& ClientCameraVector, const FRotator& ClientCameraRotation);
+	void OnSpawnBuild(const FTransform& Transform, const FVector& ClientCameraVector, const FRotator& ClientCameraRotation, int32 StructureIDTemp);
 
+	// debug
+	UFUNCTION(BlueprintCallable)
+	void ChangeBuildStructure();
+	
 private:
 	// 组件
 	UPROPERTY()
@@ -83,12 +87,12 @@ private:
 	void SetPreviewColor(bool bCanPlace) const;
 
 	// 建造模式
-	void SpawnBuildable(const FTransform& Transform);
+	void SpawnBuildable(const FTransform& Transform, int32 BuildTemp);
 	
-	void SpawnBuild(const FTransform& Transform, const FVector& ClientCameraVector, const FRotator& ClientCameraRotation);
+	void SpawnBuild(const FTransform& Transform, const FVector& ClientCameraVector, const FRotator& ClientCameraRotation, int32 StructureIDTemp);
 
 	UFUNCTION(Server, Reliable)
-	void ServerSpawnBuild(const FTransform& Transform, const FVector& ClientCameraVector, const FRotator& ClientCameraRotation);
+	void ServerSpawnBuild(const FTransform& Transform, const FVector& ClientCameraVector, const FRotator& ClientCameraRotation, int32 StructureIDTemp);
 
 	bool CheckForOverlap() const;
 

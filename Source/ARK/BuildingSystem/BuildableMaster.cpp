@@ -23,6 +23,7 @@ ABuildableMaster::ABuildableMaster()
 	// 自定义碰撞
 	OverlapBox = CreateDefaultSubobject<UBoxComponent>("OverlapBox");
 	OverlapBox->SetupAttachment(Root);
+	OverlapBox->SetBoxExtent(FVector(32, 32, 32));
 	OverlapBox->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
 	OverlapBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	OverlapBox->SetCollisionObjectType(ECC_WorldDynamic);

@@ -11,6 +11,7 @@ ACeilingMaster::ACeilingMaster()
 
 	OverlapBox->SetRelativeScale3D(FVector(3.f, 3.f, 0.3f));
 
+	// 屋顶
 	Ceiling = CreateDefaultSubobject<UBoxComponent>(TEXT("Ceiling"));
 	Ceiling->SetupAttachment(StaticMesh);
 	Ceiling->SetBoxExtent(FVector(100, 100, 10));
@@ -51,6 +52,7 @@ ACeilingMaster::ACeilingMaster()
 	Ceiling3->SetCollisionResponseToAllChannels(ECR_Ignore);
 	Ceiling3->SetCollisionResponseToChannel(ECC_GameTraceChannel3, ECR_Block);
 
+	// 墙
 	Wall = CreateDefaultSubobject<UBoxComponent>(TEXT("Wall"));
 	Wall->SetupAttachment(StaticMesh);
 	Wall->SetBoxExtent(FVector(150, 10, 150));
@@ -94,6 +96,62 @@ ACeilingMaster::ACeilingMaster()
 	Wall3->SetCollisionObjectType(ECC_WorldDynamic);
 	Wall3->SetCollisionResponseToAllChannels(ECR_Ignore);
 	Wall3->SetCollisionResponseToChannel(ECC_GameTraceChannel14, ECR_Block);
+
+	// 三角屋顶
+	TriangleCeiling = CreateDefaultSubobject<UBoxComponent>(TEXT("TriangleCeiling"));
+	TriangleCeiling->SetupAttachment(StaticMesh);
+	TriangleCeiling->SetBoxExtent(FVector(100, 100, 10));
+	TriangleCeiling->SetRelativeLocation(FVector(0, 235, 0));
+	TriangleCeiling->SetRelativeRotation(FRotator(0, -60, 0));
+	TriangleCeiling->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
+	TriangleCeiling->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	TriangleCeiling->SetCollisionObjectType(ECC_WorldDynamic);
+	TriangleCeiling->SetCollisionResponseToAllChannels(ECR_Ignore);
+	TriangleCeiling->SetCollisionResponseToChannel(ECC_GameTraceChannel6, ECR_Block);
+
+	TriangleCeiling1 = CreateDefaultSubobject<UBoxComponent>(TEXT("TriangleCeiling1"));
+	TriangleCeiling1->SetupAttachment(StaticMesh);
+	TriangleCeiling1->SetBoxExtent(FVector(100, 100, 10));
+	TriangleCeiling1->SetRelativeLocation(FVector(-235, 0, 0));
+	TriangleCeiling1->SetRelativeRotation(FRotator(0, 30, 0));
+	TriangleCeiling1->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
+	TriangleCeiling1->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	TriangleCeiling1->SetCollisionObjectType(ECC_WorldDynamic);
+	TriangleCeiling1->SetCollisionResponseToAllChannels(ECR_Ignore);
+	TriangleCeiling1->SetCollisionResponseToChannel(ECC_GameTraceChannel6, ECR_Block);
+	
+	TriangleCeiling2 = CreateDefaultSubobject<UBoxComponent>(TEXT("TriangleCeiling2"));
+	TriangleCeiling2->SetupAttachment(StaticMesh);
+	TriangleCeiling2->SetBoxExtent(FVector(100, 100, 10));
+	TriangleCeiling2->SetRelativeLocation(FVector(235, 0, 0));
+	TriangleCeiling2->SetRelativeRotation(FRotator(0, -30, 0));
+	TriangleCeiling2->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
+	TriangleCeiling2->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	TriangleCeiling2->SetCollisionObjectType(ECC_WorldDynamic);
+	TriangleCeiling2->SetCollisionResponseToAllChannels(ECR_Ignore);
+	TriangleCeiling2->SetCollisionResponseToChannel(ECC_GameTraceChannel6, ECR_Block);
+
+	TriangleCeiling3 = CreateDefaultSubobject<UBoxComponent>(TEXT("TriangleCeiling3"));
+	TriangleCeiling3->SetupAttachment(StaticMesh);
+	TriangleCeiling3->SetBoxExtent(FVector(100, 100, 10));
+	TriangleCeiling3->SetRelativeLocation(FVector(0, -235, 0));
+	TriangleCeiling3->SetRelativeRotation(FRotator(0, 0, 0));
+	TriangleCeiling3->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
+	TriangleCeiling3->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	TriangleCeiling3->SetCollisionObjectType(ECC_WorldDynamic);
+	TriangleCeiling3->SetCollisionResponseToAllChannels(ECR_Ignore);
+	TriangleCeiling3->SetCollisionResponseToChannel(ECC_GameTraceChannel6, ECR_Block);
+
+	// 楼梯
+	Stairs = CreateDefaultSubobject<UBoxComponent>(TEXT("Stairs"));
+	Stairs->SetupAttachment(StaticMesh);
+	Stairs->SetBoxExtent(FVector(180, 180, 180));
+	Stairs->SetRelativeLocation(FVector(0, -14, 164));
+	Stairs->SetCollisionProfileName(UCollisionProfile::CustomCollisionProfileName);
+	Stairs->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	Stairs->SetCollisionObjectType(ECC_WorldDynamic);
+	Stairs->SetCollisionResponseToAllChannels(ECR_Ignore);
+	Stairs->SetCollisionResponseToChannel(ECC_GameTraceChannel4, ECR_Block);
 }
 
 TArray<UBoxComponent*> ACeilingMaster::GetBoxes_Implementation()
@@ -107,5 +165,10 @@ TArray<UBoxComponent*> ACeilingMaster::GetBoxes_Implementation()
 	FoundBoxes.Add(Wall1);
 	FoundBoxes.Add(Wall2);
 	FoundBoxes.Add(Wall3);
+	FoundBoxes.Add(TriangleCeiling);
+	FoundBoxes.Add(TriangleCeiling1);
+	FoundBoxes.Add(TriangleCeiling2);
+	FoundBoxes.Add(TriangleCeiling3);
+	FoundBoxes.Add(Stairs);
 	return FoundBoxes;
 }

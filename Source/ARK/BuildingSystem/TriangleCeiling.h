@@ -4,18 +4,18 @@
 
 #include "CoreMinimal.h"
 #include "BuildableMaster.h"
-#include "WallMaster.generated.h"
+#include "TriangleCeiling.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class ARK_API AWallMaster : public ABuildableMaster
+class ARK_API ATriangleCeiling : public ABuildableMaster
 {
 	GENERATED_BODY()
 
 public:
-	AWallMaster();
+	ATriangleCeiling();
 
 protected:
 	// 屋顶
@@ -25,6 +25,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	UBoxComponent* Ceiling1;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* Ceiling2;
+
 	// 三角屋顶
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	UBoxComponent* TriangleCeiling;
@@ -32,14 +35,20 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	UBoxComponent* TriangleCeiling1;
 
-	// 火炬
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	UBoxComponent* TorchBox;
+	UBoxComponent* TriangleCeiling2;
+
+	// 墙
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* Wall;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	UBoxComponent* TorchBox1;
+	UBoxComponent* Wall1;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* Wall2;
 
 public:
-	// 接口实现
+	// 接口实习
 	virtual TArray<UBoxComponent*> GetBoxes_Implementation() override;
 };

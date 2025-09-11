@@ -2233,7 +2233,7 @@ void ASurvivalCharacter::PlaceBuildable_Implementation() const
 {
 	if (BuildingComponent->GetIsBuildModeEnabled())
 	{
-		BuildingComponent->OnSpawnBuild(BuildingComponent->GetBuildTransform(), FirstPersonCameraComponent->GetForwardVector(), FirstPersonCameraComponent->GetComponentRotation());
+		BuildingComponent->OnSpawnBuild(BuildingComponent->GetBuildTransform(), FirstPersonCameraComponent->GetForwardVector(), FirstPersonCameraComponent->GetComponentRotation(), BuildingComponent->StructureIDDebug);
 		BuildingComponent->SetIsBuildModeEnabled(false);
 	}
 }
