@@ -8,6 +8,8 @@
 
 AFoundationMaster::AFoundationMaster()
 {
+	Tags.Add("Foundation");
+	
 	BuildableInfo.UseCustomOverlap = true;
 	BuildableInfo.CanPlaceGround = true;
 	BuildableInfo.DoFloatCheck = true;

@@ -108,4 +108,7 @@ private:
 	AActor* HitActor;
 	
 	std::pair<bool, FTransform> GetSnappingPoints();
+
+	// 地基放置
+	bool BuildOnFoundation();
 };

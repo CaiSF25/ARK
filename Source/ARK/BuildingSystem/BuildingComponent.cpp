@@ -86,6 +86,8 @@ void UBuildingComponent::BuildMode(const int32 StructureID)
 	constexpr int32 BuildDistanceClose = 350;
 	constexpr int32 BuildDistanceFar = 1000;
 
+	const auto BuildInfo = BuildPreview->GetBuildableInfo();
+
 	FVector Forward = SurvivalCamera->GetForwardVector().GetSafeNormal();
 	if (Forward.IsNearlyZero()) return;
 	
@@ -103,7 +105,7 @@ void UBuildingComponent::BuildMode(const int32 StructureID)
 		OutHit,
 		Start,
 		End,
-		BuildPreview->GetBuildableInfo().TraceChannel,
+		BuildInfo.TraceChannel,
 		TraceParams
 		);
 
@@ -113,24 +115,22 @@ void UBuildingComponent::BuildMode(const int32 StructureID)
 		HitComponent = OutHit.GetComponent();
 	}
 
-	FVector DesiredLocation = bHit ? OutHit.ImpactPoint : End;
-	FRotator DesiredRotation(0.f, Rotation.Yaw + 90.f, 0.f);
+	const FVector DesiredLocation = bHit ? OutHit.ImpactPoint : End;
+	const FRotator DesiredRotation(0.f, Rotation.Yaw + 90.f, 0.f);
 	BuildTransform = FTransform(DesiredRotation, DesiredLocation);
 	
-	std::pair<bool, FTransform> Result = GetSnappingPoints();
+	const auto Result = GetSnappingPoints();
 	const bool bSnapped = Result.first;
 	if (bSnapped)
 	{
 		BuildTransform = Result.second;
 	}
-	const FBuildableInfo BuildInfo = BuildPreview->GetBuildableInfo();
+
     const bool bDoFloatCheck = BuildInfo.DoFloatCheck;
-	
     const bool bOverlap = CheckForOverlap();
-	
     const bool bFloating = IsBuildFloating();
-	
     bool bCanPlace = false;
+	
     if (bSnapped)
     {
         if (!bDoFloatCheck)
@@ -144,11 +144,22 @@ void UBuildingComponent::BuildMode(const int32 StructureID)
     }
     else
     {
-        bCanPlace = !bOverlap && bHit && bFloating;
+    	if (BuildInfo.CanPlaceGround)
+    	{
+    		bCanPlace = bFloating && !bOverlap;
+    	}
+    	else if (BuildInfo.CanPlaceFoundation)
+    	{
+    		const bool bOnFoundation = BuildOnFoundation();
+    		bCanPlace = bCanPlace = !bOverlap && bHit && bOnFoundation;
+    	}
+    	else
+    	{
+    		bCanPlace = false;
+    	}
     }
 	
     SetPreviewColor(bCanPlace);
-	
     StartBuildLoop(StructureID);
 }
 
@@ -355,7 +366,8 @@ bool UBuildingComponent::BuildPlacementCheck(const int32 StructureID, const FVec
 	UWorld* World = GetWorld();
     if (!World) return false;
 
-    if (!GetOwner() || !GetOwner()->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass())) return false;
+	AActor* Owner = GetOwner();
+    if (!Owner || !Owner->GetClass()->ImplementsInterface(USurvivalCharacterInterface::StaticClass())) return false;
 
     ASurvivalCharacter* SurvivalCharacter = Cast<ASurvivalCharacter>(ISurvivalCharacterInterface::Execute_GetSurvivalCharRef(GetOwner()));
     if (!SurvivalCharacter) return false;
@@ -382,13 +394,15 @@ bool UBuildingComponent::BuildPlacementCheck(const int32 StructureID, const FVec
         if (!IsValid(BuildPreview)) return false;
         BuildPreview->SetActorEnableCollision(false);
     }
+	
+	const auto& BuildInfo = BuildPreview->GetBuildableInfo();
 
 	// 碰撞通道
-	ECollisionChannel TraceChannel = BuildPreview->GetBuildableInfo().TraceChannel;
+	ECollisionChannel TraceChannel = BuildInfo.TraceChannel;
 	
     FHitResult OutHit;
     FCollisionQueryParams TraceParams(SCENE_QUERY_STAT(BuildPlacementTrace), true);
-    TraceParams.AddIgnoredActor(GetOwner());
+    TraceParams.AddIgnoredActor(Owner);
 	if (IsValid(BuildPreview)) TraceParams.AddIgnoredActor(BuildPreview);
 
     const bool bHit = World->LineTraceSingleByChannel(OutHit, StartLocation, EndLocation, TraceChannel, TraceParams);
@@ -397,23 +411,41 @@ bool UBuildingComponent::BuildPlacementCheck(const int32 StructureID, const FVec
 	HitActor = OutHit.GetActor();
 	HitComponent = OutHit.GetComponent();
 
-    FVector DesiredLocation = bHit ? OutHit.ImpactPoint : EndLocation;
-    FRotator DesiredRotation(0.f, ClientCameraRotation.Yaw + 90.f, 0.f);
+    const FVector DesiredLocation = bHit ? OutHit.ImpactPoint : EndLocation;
+    const FRotator DesiredRotation(0.f, ClientCameraRotation.Yaw + 90.f, 0.f);
     BuildTransform = FTransform(DesiredRotation, DesiredLocation);
 
 	// 附着
-	std::pair<bool, FTransform> Result = GetSnappingPoints();
-    if (Result.first)
-    {
-        BuildTransform = Result.second;
-        if (BuildPreview->GetBuildableInfo().DoFloatCheck)
-        {
-            return !CheckForOverlap() && IsBuildFloating();
-        }
-    	return !CheckForOverlap();
-    }
+	const auto SnappingResult = GetSnappingPoints();
+	const bool bSnapped = SnappingResult.first;
+	if (bSnapped)
+	{
+		BuildTransform = SnappingResult.second;
+	}
 
-	return !CheckForOverlap() && IsBuildFloating();
+	const bool bOverlap = CheckForOverlap();
+
+	if (bSnapped)
+	{
+		if (BuildInfo.DoFloatCheck)
+		{
+			return !bOverlap && IsBuildFloating();
+		}
+		return !bOverlap;
+	}
+	
+	if (BuildInfo.CanPlaceGround)
+	{
+		return !bOverlap && IsBuildFloating();
+	}
+
+	if (BuildInfo.CanPlaceFoundation)
+	{
+		const bool bOnFoundation = BuildOnFoundation();
+		return !bOverlap && bOnFoundation;
+	}
+
+	return false;
 }
 
 bool UBuildingComponent::IsBuildFloating() const
@@ -454,6 +486,34 @@ std::pair<bool, FTransform> UBuildingComponent::GetSnappingPoints()
 		}
 	}
 	return {bFound, HitComponent->GetComponentTransform()};
+}
+
+bool UBuildingComponent::BuildOnFoundation()
+{
+	UWorld* World = GetWorld();
+	if (!World) return false;
+	
+	FVector Start = BuildPreview->GetStaticMeshComponent()->GetComponentLocation();
+	FVector End = BuildPreview->GetStaticMeshComponent()->GetComponentLocation() - FVector(0, 0, 50);
+
+	FHitResult OutHit;
+	FCollisionQueryParams TraceParams(SCENE_QUERY_STAT(BuildPreviewTrace), false);
+	if (IsValid(BuildPreview)) TraceParams.AddIgnoredActor(BuildPreview);
+	TraceParams.AddIgnoredActor(GetOwner());
+	
+	const bool bHit = World->LineTraceSingleByChannel(
+		OutHit,
+		Start,
+		End,
+		BuildPreview->GetBuildableInfo().TraceChannel,
+		TraceParams
+		);
+
+	if (bHit)
+	{
+		return OutHit.GetActor()->ActorHasTag("Foundation");
+	}
+	return false;
 }
 
 void UBuildingComponent::ChangeBuildStructure()

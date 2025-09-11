@@ -6,6 +6,8 @@
 
 ATriangleFoundation::ATriangleFoundation()
 {
+	Tags.Add("Foundation");
+	
 	BuildableInfo.TraceChannel = ECC_GameTraceChannel5;
 	BuildableInfo.UseCustomOverlap = true;
 	BuildableInfo.CanPlaceGround = true;
